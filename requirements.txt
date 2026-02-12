@@ -1,0 +1,9 @@
+anthropic
+fastembed
+sqlite-vec
+google-api-python-client
+google-auth-oauthlib
+watchdog
+pyyaml
+apscheduler>=3.10,<4
+pytest

@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pyclaw"
+version = "0.1.0"
+description = "Ultra-personalized AI agent — local-first, Markdown-powered, multi-channel"
+requires-python = ">=3.12"
+dependencies = [
+    "anthropic",
+    "fastembed",
+    "sqlite-vec",
+    "google-api-python-client",
+    "google-auth-oauthlib",
+    "watchdog",
+    "pyyaml",
+    "apscheduler>=3.10,<4",
+]
+
+[project.scripts]
+pyclaw = "src.main:main"
+
+[tool.pytest.ini_options]
+testpaths = ["src"]
+python_files = ["*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]

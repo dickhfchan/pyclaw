@@ -70,33 +70,33 @@ Update the file after completing each sub-task, not just after completing an ent
 
 ## Tasks
 
-- [ ] 0.0 Create feature branch
-  - [ ] 0.1 Create and checkout a new branch for this feature (`git checkout -b feature/pyclaw-core`)
+- [x] 0.0 Create feature branch
+  - [x] 0.1 Create and checkout a new branch for this feature (`git checkout -b feature/pyclaw-core`)
 
-- [ ] 1.0 Set up project structure and configuration
-  - [ ] 1.1 Create `pyproject.toml` with project metadata, Python 3.12 requirement, and script entry point (`pyclaw = "src.main:main"`)
-  - [ ] 1.2 Create `requirements.txt` with all dependencies: `anthropic`, `claude-agent-sdk`, `fastembed`, `sqlite-vec`, `google-api-python-client`, `google-auth-oauthlib`, `watchdog`, `pyyaml`, `apscheduler`, `pytest`
-  - [ ] 1.3 Create the directory structure: `src/`, `src/memory/`, `src/skills/`, `src/adapters/`, `src/heartbeat/`, `memory/`, `memory/daily/`, `skills/`, `data/`, `tests/`
-  - [ ] 1.4 Create `__init__.py` files in all `src/` subdirectories
-  - [ ] 1.5 Create `config.yaml` with all config sections (memory, heartbeat, adapters, skills, agent, google) with sensible defaults
-  - [ ] 1.6 Implement `src/config.py` — load `config.yaml`, validate required fields, support env var overrides (e.g., `PYCLAW_GOOGLE_CREDENTIALS_PATH`, `ANTHROPIC_API_KEY`)
-  - [ ] 1.7 Write tests for `src/config.py` — test loading, defaults, env var overrides, missing file handling
-  - [ ] 1.8 Create starter `memory/SOUL.md`, `memory/USER.md`, and `memory/MEMORY.md` with template content and comments explaining their purpose
-  - [ ] 1.9 Add a `.gitignore` with entries for `data/`, `__pycache__/`, `.env`, `*.pyc`, `token.json` (Google OAuth)
+- [x] 1.0 Set up project structure and configuration
+  - [x] 1.1 Create `pyproject.toml` with project metadata, Python 3.12 requirement, and script entry point (`pyclaw = "src.main:main"`)
+  - [x] 1.2 Create `requirements.txt` with all dependencies: `anthropic`, `claude-agent-sdk`, `fastembed`, `sqlite-vec`, `google-api-python-client`, `google-auth-oauthlib`, `watchdog`, `pyyaml`, `apscheduler`, `pytest`
+  - [x] 1.3 Create the directory structure: `src/`, `src/memory/`, `src/skills/`, `src/adapters/`, `src/heartbeat/`, `memory/`, `memory/daily/`, `skills/`, `data/`, `tests/`
+  - [x] 1.4 Create `__init__.py` files in all `src/` subdirectories
+  - [x] 1.5 Create `config.yaml` with all config sections (memory, heartbeat, adapters, skills, agent, google) with sensible defaults
+  - [x] 1.6 Implement `src/config.py` — load `config.yaml`, validate required fields, support env var overrides (e.g., `PYCLAW_GOOGLE_CREDENTIALS_PATH`, `ANTHROPIC_API_KEY`)
+  - [x] 1.7 Write tests for `src/config.py` — test loading, defaults, env var overrides, missing file handling
+  - [x] 1.8 Create starter `memory/SOUL.md`, `memory/USER.md`, and `memory/MEMORY.md` with template content and comments explaining their purpose
+  - [x] 1.9 Add a `.gitignore` with entries for `data/`, `__pycache__/`, `.env`, `*.pyc`, `token.json` (Google OAuth)
 
-- [ ] 2.0 Implement the Memory System
-  - [ ] 2.1 Implement `src/memory/schema.py` — function `ensure_schema(db_path)` that creates/opens a SQLite database and creates the `files`, `chunks`, `chunks_fts` (FTS5), and `embedding_cache` tables. Load the `sqlite-vec` extension and create the vector virtual table. Enable WAL mode.
-  - [ ] 2.2 Write tests for `src/memory/schema.py` — verify all tables are created, verify idempotency (running twice doesn't error), verify WAL mode is set
-  - [ ] 2.3 Implement `src/memory/chunker.py` — function `chunk_markdown(content, chunk_tokens=2000, overlap_tokens=200)` that splits Markdown text into overlapping chunks. Each chunk records `start_line`, `end_line`, `text`, and a SHA-256 `hash`. Respect heading boundaries where possible.
-  - [ ] 2.4 Write tests for `src/memory/chunker.py` — test with short content (single chunk), long content (multiple chunks), overlap correctness, empty content, line number tracking
-  - [ ] 2.5 Implement `src/memory/embeddings.py` — class `EmbeddingProvider` wrapping `fastembed`. Methods: `embed(text) -> list[float]`, `embed_batch(texts) -> list[list[float]]`. Default model: `BAAI/bge-small-en-v1.5`. Cache embeddings by content hash in the `embedding_cache` table.
-  - [ ] 2.6 Write tests for `src/memory/embeddings.py` — test single embedding dimension (384), batch embedding, cache hit/miss
-  - [ ] 2.7 Implement `src/memory/search.py` — functions: `search_vector(db, query_embedding, top_k)` using sqlite-vec cosine similarity, `search_keyword(db, query_text, top_k)` using FTS5 BM25, and `search_hybrid(db, query_text, query_embedding, top_k, vector_weight=0.7, text_weight=0.3)` that merges both result sets with weighted scoring
-  - [ ] 2.8 Write tests for `src/memory/search.py` — test vector search returns ranked results, keyword search returns BM25-ranked results, hybrid merge correctly combines and deduplicates, edge cases (no results, single result)
-  - [ ] 2.9 Implement `src/memory/manager.py` — class `MemoryManager` that orchestrates: (a) scanning `memory/` for `.md` files, (b) detecting new/changed/deleted files by comparing content hash to `files` table, (c) chunking changed files, (d) generating embeddings for new chunks, (e) updating `chunks` and `files` tables, (f) updating FTS index. Methods: `sync()`, `search(query, top_k=5)`, `get_context(query)` (returns formatted memory snippets for agent prompt)
-  - [ ] 2.10 Write tests for `src/memory/manager.py` — test full sync cycle (add file, modify file, delete file), search after sync, context formatting
-  - [ ] 2.11 Implement file watching in `MemoryManager` using `watchdog` — watch `memory/` directory for `.md` file changes and trigger `sync()` automatically with a debounce (5 seconds)
-  - [ ] 2.12 Implement session logging — function `log_session(daily_dir, timestamp, query_summary, response_summary, decisions)` that appends an entry to `memory/daily/YYYY-MM-DD.md`
+- [x] 2.0 Implement the Memory System
+  - [x] 2.1 Implement `src/memory/schema.py` — function `ensure_schema(db_path)` that creates/opens a SQLite database and creates the `files`, `chunks`, `chunks_fts` (FTS5), and `embedding_cache` tables. Load the `sqlite-vec` extension and create the vector virtual table. Enable WAL mode.
+  - [x] 2.2 Write tests for `src/memory/schema.py` — verify all tables are created, verify idempotency (running twice doesn't error), verify WAL mode is set
+  - [x] 2.3 Implement `src/memory/chunker.py` — function `chunk_markdown(content, chunk_tokens=2000, overlap_tokens=200)` that splits Markdown text into overlapping chunks. Each chunk records `start_line`, `end_line`, `text`, and a SHA-256 `hash`. Respect heading boundaries where possible.
+  - [x] 2.4 Write tests for `src/memory/chunker.py` — test with short content (single chunk), long content (multiple chunks), overlap correctness, empty content, line number tracking
+  - [x] 2.5 Implement `src/memory/embeddings.py` — class `EmbeddingProvider` wrapping `fastembed`. Methods: `embed(text) -> list[float]`, `embed_batch(texts) -> list[list[float]]`. Default model: `BAAI/bge-small-en-v1.5`. Cache embeddings by content hash in the `embedding_cache` table.
+  - [x] 2.6 Write tests for `src/memory/embeddings.py` — test single embedding dimension (384), batch embedding, cache hit/miss
+  - [x] 2.7 Implement `src/memory/search.py` — functions: `search_vector(db, query_embedding, top_k)` using sqlite-vec cosine similarity, `search_keyword(db, query_text, top_k)` using FTS5 BM25, and `search_hybrid(db, query_text, query_embedding, top_k, vector_weight=0.7, text_weight=0.3)` that merges both result sets with weighted scoring
+  - [x] 2.8 Write tests for `src/memory/search.py` — test vector search returns ranked results, keyword search returns BM25-ranked results, hybrid merge correctly combines and deduplicates, edge cases (no results, single result)
+  - [x] 2.9 Implement `src/memory/manager.py` — class `MemoryManager` that orchestrates: (a) scanning `memory/` for `.md` files, (b) detecting new/changed/deleted files by comparing content hash to `files` table, (c) chunking changed files, (d) generating embeddings for new chunks, (e) updating `chunks` and `files` tables, (f) updating FTS index. Methods: `sync()`, `search(query, top_k=5)`, `get_context(query)` (returns formatted memory snippets for agent prompt)
+  - [x] 2.10 Write tests for `src/memory/manager.py` — test full sync cycle (add file, modify file, delete file), search after sync, context formatting
+  - [x] 2.11 Implement file watching in `MemoryManager` using `watchdog` — watch `memory/` directory for `.md` file changes and trigger `sync()` automatically with a debounce (5 seconds)
+  - [x] 2.12 Implement session logging — function `log_session(daily_dir, timestamp, query_summary, response_summary, decisions)` that appends an entry to `memory/daily/YYYY-MM-DD.md`
 
 - [ ] 3.0 Implement the Skills System
   - [ ] 3.1 Implement `src/skills/types.py` — dataclass `Skill` with fields: `name: str`, `description: str`, `content: str` (full Markdown body), `path: str`, `requires_bins: list[str]`, `requires_env: list[str]`, `available: bool`
