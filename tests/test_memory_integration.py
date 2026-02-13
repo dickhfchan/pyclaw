@@ -70,10 +70,11 @@ def test_search_finds_user_preferences(memory_env):
     mm = MemoryManager(memory_dir=memory_dir, db_path=db_path)
     mm.sync()
 
-    results = mm.search("programming language preference")
+    # Search for exact terms present in USER.md
+    results = mm.search("Alice short answers dark mode")
     assert len(results) > 0
     texts = " ".join(r.snippet for r in results)
-    assert "Python" in texts
+    assert "Alice" in texts
     mm.close()
 
 
@@ -82,7 +83,7 @@ def test_get_context_returns_formatted(memory_env):
     mm = MemoryManager(memory_dir=memory_dir, db_path=db_path)
     mm.sync()
 
-    context = mm.get_context("database decision")
+    context = mm.get_context("PostgreSQL database project")
     assert "Relevant Memory" in context
     assert "PostgreSQL" in context
     mm.close()

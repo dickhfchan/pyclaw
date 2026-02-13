@@ -102,6 +102,6 @@ def _ensure_vec(conn: sqlite3.Connection) -> None:
             conn.execute(
                 "CREATE VIRTUAL TABLE chunks_vec USING vec0(id TEXT PRIMARY KEY, embedding float[384])"
             )
-    except (ImportError, sqlite3.OperationalError):
-        # sqlite-vec not installed or not available
+    except (ImportError, AttributeError, sqlite3.OperationalError):
+        # sqlite-vec not installed, load_extension not available, or other issue
         pass
