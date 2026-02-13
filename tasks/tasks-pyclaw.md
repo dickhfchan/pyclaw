@@ -98,47 +98,47 @@ Update the file after completing each sub-task, not just after completing an ent
   - [x] 2.11 Implement file watching in `MemoryManager` using `watchdog` — watch `memory/` directory for `.md` file changes and trigger `sync()` automatically with a debounce (5 seconds)
   - [x] 2.12 Implement session logging — function `log_session(daily_dir, timestamp, query_summary, response_summary, decisions)` that appends an entry to `memory/daily/YYYY-MM-DD.md`
 
-- [ ] 3.0 Implement the Skills System
-  - [ ] 3.1 Implement `src/skills/types.py` — dataclass `Skill` with fields: `name: str`, `description: str`, `content: str` (full Markdown body), `path: str`, `requires_bins: list[str]`, `requires_env: list[str]`, `available: bool`
-  - [ ] 3.2 Implement `src/skills/loader.py` — function `discover_skills(skills_dir)` that: (a) scans subdirectories for `SKILL.md` files, (b) parses YAML frontmatter to extract `name`, `description`, and `metadata`, (c) validates required bins are on `$PATH` via `shutil.which()`, (d) validates required env vars are set, (e) returns a list of `Skill` objects with `available` flag set accordingly
-  - [ ] 3.3 Write tests for `src/skills/loader.py` — test discovery with valid SKILL.md, missing SKILL.md, invalid frontmatter, missing required binary, missing required env var, empty skills directory
-  - [ ] 3.4 Implement skill listing for agent prompt — function `format_skills_list(skills)` that returns a concise Markdown list of available skills (name + description) for injection into the system prompt
-  - [ ] 3.5 Implement skill content retrieval — function `get_skill_content(skills, skill_name)` that returns the full Markdown body of a skill for injection into agent context when the skill is invoked
-  - [ ] 3.6 Add file watching to skill loader — watch `skills/` directory for changes to `SKILL.md` files and re-run discovery automatically
+- [x] 3.0 Implement the Skills System
+  - [x] 3.1 Implement `src/skills/types.py` — dataclass `Skill` with fields: `name: str`, `description: str`, `content: str` (full Markdown body), `path: str`, `requires_bins: list[str]`, `requires_env: list[str]`, `available: bool`
+  - [x] 3.2 Implement `src/skills/loader.py` — function `discover_skills(skills_dir)` that: (a) scans subdirectories for `SKILL.md` files, (b) parses YAML frontmatter to extract `name`, `description`, and `metadata`, (c) validates required bins are on `$PATH` via `shutil.which()`, (d) validates required env vars are set, (e) returns a list of `Skill` objects with `available` flag set accordingly
+  - [x] 3.3 Write tests for `src/skills/loader.py` — test discovery with valid SKILL.md, missing SKILL.md, invalid frontmatter, missing required binary, missing required env var, empty skills directory
+  - [x] 3.4 Implement skill listing for agent prompt — function `format_skills_list(skills)` that returns a concise Markdown list of available skills (name + description) for injection into the system prompt
+  - [x] 3.5 Implement skill content retrieval — function `get_skill_content(skills, skill_name)` that returns the full Markdown body of a skill for injection into agent context when the skill is invoked
+  - [x] 3.6 Add file watching to skill loader — watch `skills/` directory for changes to `SKILL.md` files and re-run discovery automatically
 
-- [ ] 4.0 Implement the Adapters System
-  - [ ] 4.1 Implement `src/adapters/base.py` — abstract base class `Adapter` with: `id: str`, `name: str`, abstract methods `send(to: str, message: str) -> None`, `listen(callback: Callable) -> None`, `stop() -> None`
-  - [ ] 4.2 Implement `src/adapters/terminal.py` — class `TerminalAdapter(Adapter)` supporting: (a) interactive mode: read from stdin in a loop, call the agent callback with each message, print the response with Markdown formatting, (b) one-shot mode: accept a single query as CLI argument, print the response, and exit
-  - [ ] 4.3 Write tests for `src/adapters/terminal.py` — test one-shot mode with mocked agent callback, test message formatting
-  - [ ] 4.4 Implement `src/adapters/whatsapp.py` — class `WhatsAppAdapter(Adapter)` supporting: (a) QR code pairing for initial setup, (b) listening for incoming text messages, (c) sending text messages, (d) connection state management (connected/disconnected/reconnecting). Use a WhatsApp library (e.g., `whatsapp-web.py` or equivalent).
-  - [ ] 4.5 Write tests for `src/adapters/whatsapp.py` — test send with mocked WhatsApp client, test message callback invocation, test connection state
-  - [ ] 4.6 Implement `src/adapters/registry.py` — class `AdapterRegistry` that: (a) loads enabled adapters from config, (b) provides `get_adapter(channel_id)` to retrieve an adapter by ID, (c) provides `send(channel_id, to, message)` to route a message to the correct adapter, (d) starts all adapter listeners
-  - [ ] 4.7 Write tests for `src/adapters/registry.py` — test adapter registration, routing to correct adapter, unknown adapter handling
+- [x] 4.0 Implement the Adapters System
+  - [x] 4.1 Implement `src/adapters/base.py` — abstract base class `Adapter` with: `id: str`, `name: str`, abstract methods `send(to: str, message: str) -> None`, `listen(callback: Callable) -> None`, `stop() -> None`
+  - [x] 4.2 Implement `src/adapters/terminal.py` — class `TerminalAdapter(Adapter)` supporting: (a) interactive mode: read from stdin in a loop, call the agent callback with each message, print the response with Markdown formatting, (b) one-shot mode: accept a single query as CLI argument, print the response, and exit
+  - [x] 4.3 Write tests for `src/adapters/terminal.py` — test one-shot mode with mocked agent callback, test message formatting
+  - [x] 4.4 Implement `src/adapters/whatsapp.py` — class `WhatsAppAdapter(Adapter)` supporting: (a) QR code pairing for initial setup, (b) listening for incoming text messages, (c) sending text messages, (d) connection state management (connected/disconnected/reconnecting). Use a WhatsApp library (e.g., `whatsapp-web.py` or equivalent).
+  - [x] 4.5 Write tests for `src/adapters/whatsapp.py` — test send with mocked WhatsApp client, test message callback invocation, test connection state
+  - [x] 4.6 Implement `src/adapters/registry.py` — class `AdapterRegistry` that: (a) loads enabled adapters from config, (b) provides `get_adapter(channel_id)` to retrieve an adapter by ID, (c) provides `send(channel_id, to, message)` to route a message to the correct adapter, (d) starts all adapter listeners
+  - [x] 4.7 Write tests for `src/adapters/registry.py` — test adapter registration, routing to correct adapter, unknown adapter handling
 
-- [ ] 5.0 Implement the Heartbeat System
-  - [ ] 5.1 Implement `src/heartbeat/gmail.py` — function `fetch_unread_emails(credentials_path, since_timestamp)` that: (a) authenticates via Google OAuth2 (with stored refresh token), (b) fetches unread emails since last check, (c) returns a list of dicts with `sender`, `subject`, `snippet`, `timestamp`, `labels`. Handle OAuth token refresh automatically.
-  - [ ] 5.2 Write tests for `src/heartbeat/gmail.py` — test with mocked Google API client, test token refresh, test empty inbox
-  - [ ] 5.3 Implement `src/heartbeat/calendar.py` — function `fetch_upcoming_events(credentials_path, hours_ahead=24)` that: (a) authenticates via Google OAuth2, (b) fetches events for the next N hours, (c) returns a list of dicts with `title`, `start_time`, `end_time`, `location`, `attendees`
-  - [ ] 5.4 Write tests for `src/heartbeat/calendar.py` — test with mocked Google API client, test no upcoming events, test multiple events
-  - [ ] 5.5 Implement `src/heartbeat/notifier.py` — class `Notifier` that: (a) loads notification routing config (notification_type -> channel mapping), (b) provides `notify(notification_type, message)` that sends via the correct adapter from the registry, (c) falls back to `default` channel if type not configured
-  - [ ] 5.6 Write tests for `src/heartbeat/notifier.py` — test routing to correct channel, test fallback to default, test unknown notification type
-  - [ ] 5.7 Implement `src/heartbeat/scheduler.py` — class `HeartbeatScheduler` that: (a) uses APScheduler to register periodic jobs, (b) registers a Gmail check job (default: every 15 min), (c) registers a Calendar check job (default: every 15 min), (d) registers a daily summary job (default: 8:00 AM). Each job: gathers data, passes to Claude for reasoning with user context (SOUL.md + USER.md), and calls Notifier if Claude decides a notification is needed.
-  - [ ] 5.8 Write tests for `src/heartbeat/scheduler.py` — test job registration, test job execution triggers data fetch + Claude reasoning, test notification sent when Claude decides to notify
-  - [ ] 5.9 Implement Google OAuth2 first-time setup flow — a CLI command (`pyclaw auth google`) that runs the OAuth consent flow, stores `token.json` locally, and verifies access to Gmail and Calendar APIs
+- [x] 5.0 Implement the Heartbeat System
+  - [x] 5.1 Implement `src/heartbeat/gmail.py` — function `fetch_unread_emails(credentials_path, since_timestamp)` that: (a) authenticates via Google OAuth2 (with stored refresh token), (b) fetches unread emails since last check, (c) returns a list of dicts with `sender`, `subject`, `snippet`, `timestamp`, `labels`. Handle OAuth token refresh automatically.
+  - [x] 5.2 Write tests for `src/heartbeat/gmail.py` — test with mocked Google API client, test token refresh, test empty inbox
+  - [x] 5.3 Implement `src/heartbeat/calendar.py` — function `fetch_upcoming_events(credentials_path, hours_ahead=24)` that: (a) authenticates via Google OAuth2, (b) fetches events for the next N hours, (c) returns a list of dicts with `title`, `start_time`, `end_time`, `location`, `attendees`
+  - [x] 5.4 Write tests for `src/heartbeat/calendar.py` — test with mocked Google API client, test no upcoming events, test multiple events
+  - [x] 5.5 Implement `src/heartbeat/notifier.py` — class `Notifier` that: (a) loads notification routing config (notification_type -> channel mapping), (b) provides `notify(notification_type, message)` that sends via the correct adapter from the registry, (c) falls back to `default` channel if type not configured
+  - [x] 5.6 Write tests for `src/heartbeat/notifier.py` — test routing to correct channel, test fallback to default, test unknown notification type
+  - [x] 5.7 Implement `src/heartbeat/scheduler.py` — class `HeartbeatScheduler` that: (a) uses APScheduler to register periodic jobs, (b) registers a Gmail check job (default: every 15 min), (c) registers a Calendar check job (default: every 15 min), (d) registers a daily summary job (default: 8:00 AM). Each job: gathers data, passes to Claude for reasoning with user context (SOUL.md + USER.md), and calls Notifier if Claude decides a notification is needed.
+  - [x] 5.8 Write tests for `src/heartbeat/scheduler.py` — test job registration, test job execution triggers data fetch + Claude reasoning, test notification sent when Claude decides to notify
+  - [x] 5.9 Implement Google OAuth2 first-time setup flow — a CLI command (`pyclaw auth google`) that runs the OAuth consent flow, stores `token.json` locally, and verifies access to Gmail and Calendar APIs
 
-- [ ] 6.0 Implement the Core Agent
-  - [ ] 6.1 Implement `src/agent.py` — class `Agent` that: (a) builds a system prompt from SOUL.md + USER.md + memory search results + available skills list, (b) defines tools for: `search_memory(query)`, `execute_shell(command)`, `send_notification(type, message)`, (c) calls Claude via the Agent SDK with the assembled prompt and tools, (d) handles tool use responses (execute tool, return result to Claude), (e) returns the final text response
-  - [ ] 6.2 Write tests for `src/agent.py` — test system prompt assembly includes all components, test tool invocation dispatching, test conversation flow with mocked Claude API
-  - [ ] 6.3 Implement `src/session.py` — class `SessionManager` that: (a) creates new sessions with a unique ID, (b) stores conversation history (list of messages) per session, (c) expires sessions after configurable idle timeout (default: 30 min), (d) logs completed sessions to `memory/daily/YYYY-MM-DD.md` via session logging
-  - [ ] 6.4 Write tests for `src/session.py` — test session creation, history tracking, expiry after timeout, transcript logging
-  - [ ] 6.5 Implement `src/main.py` — CLI entry point that: (a) parses args (`pyclaw chat` for interactive, `pyclaw ask "query"` for one-shot, `pyclaw auth google` for OAuth setup), (b) loads config, (c) initializes MemoryManager and runs initial sync, (d) loads skills, (e) initializes adapters and registry, (f) starts heartbeat scheduler in background thread, (g) starts the appropriate adapter listener based on mode
-  - [ ] 6.6 Write tests for `src/main.py` — test CLI argument parsing, test component initialization order
+- [x] 6.0 Implement the Core Agent
+  - [x] 6.1 Implement `src/agent.py` — class `Agent` that: (a) builds a system prompt from SOUL.md + USER.md + memory search results + available skills list, (b) defines tools for: `search_memory(query)`, `execute_shell(command)`, `send_notification(type, message)`, (c) calls Claude via the Agent SDK with the assembled prompt and tools, (d) handles tool use responses (execute tool, return result to Claude), (e) returns the final text response
+  - [x] 6.2 Write tests for `src/agent.py` — test system prompt assembly includes all components, test tool invocation dispatching, test conversation flow with mocked Claude API
+  - [x] 6.3 Implement `src/session.py` — class `SessionManager` that: (a) creates new sessions with a unique ID, (b) stores conversation history (list of messages) per session, (c) expires sessions after configurable idle timeout (default: 30 min), (d) logs completed sessions to `memory/daily/YYYY-MM-DD.md` via session logging
+  - [x] 6.4 Write tests for `src/session.py` — test session creation, history tracking, expiry after timeout, transcript logging
+  - [x] 6.5 Implement `src/main.py` — CLI entry point that: (a) parses args (`pyclaw chat` for interactive, `pyclaw ask "query"` for one-shot, `pyclaw auth google` for OAuth setup), (b) loads config, (c) initializes MemoryManager and runs initial sync, (d) loads skills, (e) initializes adapters and registry, (f) starts heartbeat scheduler in background thread, (g) starts the appropriate adapter listener based on mode
+  - [x] 6.6 Write tests for `src/main.py` — test CLI argument parsing, test component initialization order
 
-- [ ] 7.0 Integration and end-to-end testing
-  - [ ] 7.1 Write an integration test for the memory pipeline: create temp Markdown files -> sync -> search -> verify results contain expected content
-  - [ ] 7.2 Write an integration test for the skills pipeline: create a temp `SKILL.md` -> discover -> verify skill appears in agent prompt -> verify skill content is retrievable
-  - [ ] 7.3 Write an integration test for the heartbeat pipeline: mock Gmail/Calendar responses -> run scheduler job -> verify Claude is called with correct context -> verify notification is routed to correct adapter
-  - [ ] 7.4 Write an integration test for the terminal adapter end-to-end: simulate user input -> verify agent receives message -> verify response is returned -> verify session is logged to daily file
+- [x] 7.0 Integration and end-to-end testing
+  - [x] 7.1 Write an integration test for the memory pipeline: create temp Markdown files -> sync -> search -> verify results contain expected content
+  - [x] 7.2 Write an integration test for the skills pipeline: create a temp `SKILL.md` -> discover -> verify skill appears in agent prompt -> verify skill content is retrievable
+  - [x] 7.3 Write an integration test for the heartbeat pipeline: mock Gmail/Calendar responses -> run scheduler job -> verify Claude is called with correct context -> verify notification is routed to correct adapter
+  - [x] 7.4 Write an integration test for the terminal adapter end-to-end: simulate user input -> verify agent receives message -> verify response is returned -> verify session is logged to daily file
   - [ ] 7.5 Manually test WhatsApp adapter: pair device, send a message, verify response, verify heartbeat notifications arrive
   - [ ] 7.6 Verify Obsidian compatibility: point Obsidian at `memory/` directory, confirm files are visible and editable, confirm edits trigger re-indexing
-  - [ ] 7.7 Create a sample skill (`skills/weather/SKILL.md`) and verify the agent can discover and use it in a conversation
+  - [x] 7.7 Create a sample skill (`skills/weather/SKILL.md`) and verify the agent can discover and use it in a conversation
