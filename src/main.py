@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import asyncio
 import logging
 import sys
 from pathlib import Path
@@ -70,7 +71,7 @@ def _init_heartbeat(config: Config, memory_manager, notifier, agent):
     from src.heartbeat.scheduler import HeartbeatScheduler
 
     def reason_fn(context: str, prompt: str) -> str | None:
-        return agent.reason(context, prompt)
+        return asyncio.run(agent.reason(context, prompt))
 
     scheduler = HeartbeatScheduler(
         config=config,
@@ -113,7 +114,9 @@ def _run_chat(config: Config) -> None:
         terminal = TerminalAdapter()
 
     def callback(sender: str, message: str) -> str:
-        response, messages = agent.chat(session.messages, message)
+        response, messages = asyncio.run(
+            agent.chat(session.messages, message)
+        )
         session_mgr.add_exchange(session.id, message, response, messages)
         return response
 
@@ -132,13 +135,13 @@ def _run_chat(config: Config) -> None:
         memory.close()
 
 
-def _run_ask(config: Config, query: str) -> None:
+async def _run_ask(config: Config, query: str) -> None:
     """One-shot ask mode."""
     memory = _init_memory(config)
     skills = _init_skills(config)
     agent = _init_agent(config, memory, skills)
 
-    response, _ = agent.chat([], query)
+    response, _ = await agent.chat([], query)
     print(response)
     memory.close()
 
@@ -210,7 +213,7 @@ def main(args: list[str] | None = None) -> None:
     if parsed.command == "chat":
         _run_chat(config)
     elif parsed.command == "ask":
-        _run_ask(config, parsed.query)
+        asyncio.run(_run_ask(config, parsed.query))
     elif parsed.command == "auth":
         if parsed.service == "google":
             _run_auth_google(config)

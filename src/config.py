@@ -82,6 +82,7 @@ class SkillsConfig:
 class AgentConfig:
     model: str = "claude-sonnet-4-20250514"
     session_timeout_minutes: int = 30
+    permission_mode: str = "bypassPermissions"
 
 
 @dataclass
@@ -211,11 +212,37 @@ def _dict_to_config(raw: dict[str, Any]) -> Config:
     return Config(**kwargs)
 
 
+def _load_dotenv(env_path: str | Path = ".env") -> None:
+    """Load environment variables from a .env file if it exists."""
+    env_path = Path(env_path)
+    if not env_path.exists():
+        return
+    with open(env_path) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if "=" not in line:
+                continue
+            key, _, value = line.partition("=")
+            key = key.strip()
+            value = value.strip()
+            # Strip surrounding quotes
+            if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+                value = value[1:-1]
+            if key not in os.environ:
+                os.environ[key] = value
+
+
 def load_config(config_path: str | Path = "config.yaml") -> Config:
     """Load configuration from a YAML file with env var overrides.
 
-    If the file doesn't exist, returns default config.
+    Loads .env file first, then config.yaml, then applies env overrides.
+    If the config file doesn't exist, returns default config.
     """
+    # Load .env file so ANTHROPIC_API_KEY (and others) are available
+    _load_dotenv()
+
     config_path = Path(config_path)
     raw: dict[str, Any] = {}
 

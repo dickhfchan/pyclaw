@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+import asyncio
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from src.agent import Agent, _build_system_prompt, TOOLS
+from src.agent import Agent, _build_system_prompt, _extract_text
 from src.config import Config
 from src.skills.types import Skill
 
@@ -63,110 +64,123 @@ def test_build_system_prompt_no_skills(mock_memory):
     assert "Available Skills" not in prompt
 
 
-def test_tools_defined():
-    tool_names = {t["name"] for t in TOOLS}
-    assert "search_memory" in tool_names
-    assert "execute_shell" in tool_names
-    assert "send_notification" in tool_names
+def test_extract_text_from_messages():
+    msg = MagicMock()
+    block = MagicMock()
+    block.text = "Hello world"
+    msg.content = [block]
+    result = _extract_text([msg])
+    assert result == "Hello world"
 
 
-def test_handle_tool_search_memory(config, mock_memory, sample_skills):
-    agent = Agent(config, mock_memory, sample_skills)
-    result = agent._handle_tool("search_memory", {"query": "preferences"})
-    assert "Relevant Memory" in result
+def test_extract_text_empty():
+    msg = MagicMock(spec=[])  # no 'content' attribute
+    result = _extract_text([msg])
+    assert result == ""
 
 
-def test_handle_tool_search_memory_no_results(config, mock_memory, sample_skills):
-    mock_memory.get_context.return_value = ""
-    agent = Agent(config, mock_memory, sample_skills)
-    result = agent._handle_tool("search_memory", {"query": "unknown"})
-    assert "No relevant memory" in result
+def test_agent_init_creates_mcp_server(config, mock_memory, sample_skills):
+    with patch("src.agent.create_sdk_mcp_server") as mock_create, \
+         patch("src.agent.tool", side_effect=lambda *a, **kw: lambda fn: fn):
+        mock_create.return_value = MagicMock()
+        agent = Agent(config, mock_memory, sample_skills)
+        mock_create.assert_called_once()
 
 
-def test_handle_tool_execute_shell(config, mock_memory, sample_skills):
-    agent = Agent(config, mock_memory, sample_skills)
-    result = agent._handle_tool("execute_shell", {"command": "echo hello"})
-    assert "hello" in result
+def test_agent_build_options(config, mock_memory, sample_skills):
+    with patch("src.agent.create_sdk_mcp_server") as mock_create, \
+         patch("src.agent.tool", side_effect=lambda *a, **kw: lambda fn: fn):
+        mock_create.return_value = MagicMock()
+        agent = Agent(config, mock_memory, sample_skills)
+        options = agent._build_options("test system prompt")
+        assert options.model == config.agent.model
+        assert options.system_prompt == "test system prompt"
+        assert options.permission_mode == config.agent.permission_mode
+        assert "mcp__pyclaw__search_memory" in options.allowed_tools
+        assert "mcp__pyclaw__send_notification" in options.allowed_tools
 
 
-def test_handle_tool_send_notification_no_notifier(config, mock_memory, sample_skills):
-    agent = Agent(config, mock_memory, sample_skills)
-    result = agent._handle_tool(
-        "send_notification",
-        {"notification_type": "test", "message": "hello"},
-    )
-    assert "not configured" in result
+@pytest.mark.asyncio
+async def test_chat_returns_text(config, mock_memory, sample_skills):
+    with patch("src.agent.create_sdk_mcp_server") as mock_create, \
+         patch("src.agent.tool", side_effect=lambda *a, **kw: lambda fn: fn):
+        mock_create.return_value = MagicMock()
+        agent = Agent(config, mock_memory, sample_skills)
 
+    # Mock query to yield a message with text content
+    mock_msg = MagicMock()
+    block = MagicMock()
+    block.text = "Here is the answer."
+    mock_msg.content = [block]
 
-def test_handle_tool_send_notification_with_notifier(config, mock_memory, sample_skills):
-    notifier = MagicMock()
-    agent = Agent(config, mock_memory, sample_skills, notifier=notifier)
-    result = agent._handle_tool(
-        "send_notification",
-        {"notification_type": "urgent_email", "message": "Check your inbox"},
-    )
-    notifier.notify.assert_called_once_with("urgent_email", "Check your inbox")
-    assert "sent" in result
+    async def mock_query(**kwargs):
+        yield mock_msg
 
-
-def test_handle_tool_unknown(config, mock_memory, sample_skills):
-    agent = Agent(config, mock_memory, sample_skills)
-    result = agent._handle_tool("nonexistent_tool", {})
-    assert "Unknown tool" in result
-
-
-@patch("src.agent.anthropic.Anthropic")
-def test_chat_returns_text(mock_anthropic_cls, config, mock_memory, sample_skills):
-    # Mock the API response
-    mock_client = MagicMock()
-    mock_anthropic_cls.return_value = mock_client
-
-    text_block = MagicMock()
-    text_block.type = "text"
-    text_block.text = "Here is the answer."
-
-    mock_response = MagicMock()
-    mock_response.stop_reason = "end_turn"
-    mock_response.content = [text_block]
-
-    mock_client.messages.create.return_value = mock_response
-
-    agent = Agent(config, mock_memory, sample_skills)
-    response_text, messages = agent.chat([], "What time is it?")
+    with patch("src.agent.query", side_effect=mock_query):
+        response_text, messages = await agent.chat([], "What time is it?")
 
     assert response_text == "Here is the answer."
-    assert len(messages) >= 2  # user + assistant
+    assert len(messages) == 2  # user + assistant
 
 
-@patch("src.agent.anthropic.Anthropic")
-def test_chat_handles_tool_use(mock_anthropic_cls, config, mock_memory, sample_skills):
-    mock_client = MagicMock()
-    mock_anthropic_cls.return_value = mock_client
+@pytest.mark.asyncio
+async def test_chat_preserves_history(config, mock_memory, sample_skills):
+    with patch("src.agent.create_sdk_mcp_server") as mock_create, \
+         patch("src.agent.tool", side_effect=lambda *a, **kw: lambda fn: fn):
+        mock_create.return_value = MagicMock()
+        agent = Agent(config, mock_memory, sample_skills)
 
-    # First response: tool use
-    tool_block = MagicMock()
-    tool_block.type = "tool_use"
-    tool_block.name = "search_memory"
-    tool_block.input = {"query": "preferences"}
-    tool_block.id = "tool_123"
+    mock_msg = MagicMock()
+    block = MagicMock()
+    block.text = "Response"
+    mock_msg.content = [block]
 
-    tool_response = MagicMock()
-    tool_response.stop_reason = "tool_use"
-    tool_response.content = [tool_block]
+    async def mock_query(**kwargs):
+        yield mock_msg
 
-    # Second response: final text
-    text_block = MagicMock()
-    text_block.type = "text"
-    text_block.text = "Based on memory, you prefer X."
+    existing = [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"}]
 
-    final_response = MagicMock()
-    final_response.stop_reason = "end_turn"
-    final_response.content = [text_block]
+    with patch("src.agent.query", side_effect=mock_query):
+        _, messages = await agent.chat(existing, "follow up")
 
-    mock_client.messages.create.side_effect = [tool_response, final_response]
+    assert len(messages) == 4  # 2 existing + user + assistant
+    assert messages[-2]["content"] == "follow up"
+    assert messages[-1]["content"] == "Response"
 
-    agent = Agent(config, mock_memory, sample_skills)
-    response_text, messages = agent.chat([], "What are my preferences?")
 
-    assert response_text == "Based on memory, you prefer X."
-    assert mock_client.messages.create.call_count == 2
+@pytest.mark.asyncio
+async def test_reason_returns_text(config, mock_memory, sample_skills):
+    with patch("src.agent.create_sdk_mcp_server") as mock_create, \
+         patch("src.agent.tool", side_effect=lambda *a, **kw: lambda fn: fn):
+        mock_create.return_value = MagicMock()
+        agent = Agent(config, mock_memory, sample_skills)
+
+    mock_msg = MagicMock()
+    block = MagicMock()
+    block.text = "Reasoning result"
+    mock_msg.content = [block]
+
+    async def mock_query(**kwargs):
+        yield mock_msg
+
+    with patch("src.agent.query", side_effect=mock_query):
+        result = await agent.reason("context", "prompt")
+
+    assert result == "Reasoning result"
+
+
+@pytest.mark.asyncio
+async def test_reason_returns_none_on_error(config, mock_memory, sample_skills):
+    with patch("src.agent.create_sdk_mcp_server") as mock_create, \
+         patch("src.agent.tool", side_effect=lambda *a, **kw: lambda fn: fn):
+        mock_create.return_value = MagicMock()
+        agent = Agent(config, mock_memory, sample_skills)
+
+    async def mock_query(**kwargs):
+        raise RuntimeError("API error")
+        yield  # make it an async generator
+
+    with patch("src.agent.query", side_effect=mock_query):
+        result = await agent.reason("context", "prompt")
+
+    assert result is None

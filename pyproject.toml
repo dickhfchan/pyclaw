@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Ultra-personalized AI agent — local-first, Markdown-powered, multi-channel"
 requires-python = ">=3.12"
 dependencies = [
-    "anthropic",
+    "claude-agent-sdk",
     "fastembed",
     "sqlite-vec",
     "google-api-python-client",
@@ -26,6 +26,7 @@ testpaths = ["src", "tests"]
 python_files = ["*_test.py", "test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+asyncio_mode = "auto"
 
 [tool.setuptools.packages.find]
 where = ["."]

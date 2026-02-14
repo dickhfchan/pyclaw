@@ -1,4 +1,4 @@
-anthropic
+claude-agent-sdk
 fastembed
 sqlite-vec
 google-api-python-client
@@ -7,3 +7,4 @@ watchdog
 pyyaml
 apscheduler>=3.10,<4
 pytest
+pytest-asyncio

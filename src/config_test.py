@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from src.config import Config, load_config
+from src.config import Config, load_config, _load_dotenv
 
 
 def _write_yaml(path: Path, data: dict) -> None:
@@ -99,3 +99,33 @@ class TestLoadConfig:
         assert cfg.notifications.urgent_email == "terminal"
         assert cfg.notifications.daily_summary == "whatsapp"
         assert cfg.notifications.default == "terminal"
+
+    def test_load_dotenv(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        env_file = tmp_path / ".env"
+        env_file.write_text(
+            '# comment\n'
+            'ANTHROPIC_API_KEY=sk-test-123\n'
+            'MY_VAR="quoted value"\n'
+            "SINGLE='single quoted'\n"
+            'EMPTY_LINE=\n'
+        )
+        # Ensure keys aren't already set
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.delenv("MY_VAR", raising=False)
+        monkeypatch.delenv("SINGLE", raising=False)
+
+        _load_dotenv(env_file)
+
+        assert os.environ["ANTHROPIC_API_KEY"] == "sk-test-123"
+        assert os.environ["MY_VAR"] == "quoted value"
+        assert os.environ["SINGLE"] == "single quoted"
+
+    def test_load_dotenv_does_not_override(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        env_file = tmp_path / ".env"
+        env_file.write_text("MY_KEY=from_file\n")
+        monkeypatch.setenv("MY_KEY", "from_env")
+
+        _load_dotenv(env_file)
+
+        # Existing env var should NOT be overridden
+        assert os.environ["MY_KEY"] == "from_env"
