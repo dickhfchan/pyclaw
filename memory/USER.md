@@ -5,17 +5,16 @@
 <!-- Update it as your preferences change. -->
 
 ## Identity
-
-- Name: (your name)
-- Role: (your role)
-- Location: (your city/timezone)
+- Name: Dick
+- Role: Software Engineer
+- Location: Hong Kong (UTC+8)
 
 ## Preferences
-
 - Preferred language: English
 - Communication style: Direct and concise
-- Notification preference: Only notify for urgent items
 
 ## Work Context
+- Current projects: pyclaw, ...
+
 
 - (Add notes about your current projects, tools you use, etc.)
