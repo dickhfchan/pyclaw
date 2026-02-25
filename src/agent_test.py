@@ -36,7 +36,11 @@ def sample_skills():
 
 @pytest.fixture
 def config():
-    return Config()
+    # Use ANTHROPIC so SDK MCP server is created (tests patch create_sdk_mcp_server)
+    c = Config()
+    c.agent.provider = "ANTHROPIC"
+    c.agent.model = "claude-sonnet-4-20250514"
+    return c
 
 
 def test_build_system_prompt_includes_soul(mock_memory, sample_skills):

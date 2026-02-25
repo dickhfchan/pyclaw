@@ -1,4 +1,6 @@
 claude-agent-sdk
+openai
+ddgs
 fastembed
 sqlite-vec
 google-api-python-client

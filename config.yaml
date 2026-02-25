@@ -39,7 +39,8 @@ skills:
   dir: skills
 
 agent:
-  model: claude-sonnet-4-20250514
+  provider: AZURE_OPENAI   # AZURE_OPENAI (default) | ANTHROPIC
+  model: gpt-5             # deployment name for Azure; model id for Anthropic
   session_timeout_minutes: 30
 
 google:

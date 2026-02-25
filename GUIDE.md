@@ -7,7 +7,8 @@ A local-first, ultra-personalized AI agent powered by Claude. It remembers your 
 ## 1. Prerequisites
 
 - Python 3.12 or later
-- An [Anthropic API key](https://console.anthropic.com/)
+- **Default:** [Azure OpenAI](https://azure.microsoft.com/en-us/products/ai-services/openai-service) endpoint and API key (e.g. for gpt-5)
+- **Optional:** [Anthropic API key](https://console.anthropic.com/) if you set `agent.provider` to `ANTHROPIC`
 
 ---
 
@@ -24,16 +25,19 @@ pip install -r requirements.txt
 
 ## 3. API Key
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root. **By default** the agent uses Azure OpenAI (gpt-5 or your deployment):
+
+```
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
+AZURE_OPENAI_API_KEY=your-key
+AZURE_OPENAI_API_VERSION=2025-01-01-preview
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-5
+```
+
+The app loads `.env` automatically. To use Claude instead, set in `config.yaml` (or env) `agent.provider: ANTHROPIC` and:
 
 ```
 ANTHROPIC_API_KEY=sk-ant-your-key-here
-```
-
-The app loads this automatically on startup. Alternatively, export it in your shell:
-
-```bash
-export ANTHROPIC_API_KEY="sk-ant-..."
 ```
 
 ---
@@ -146,7 +150,9 @@ All settings are in `config.yaml`. Environment variables override config values.
 
 | Env Var | Config Path |
 |---------|-------------|
-| `ANTHROPIC_API_KEY` | Used by Claude SDK directly |
+| `AZURE_OPENAI_*` | Used when `agent.provider` is `AZURE_OPENAI` (default) |
+| `ANTHROPIC_API_KEY` | Used when `agent.provider` is `ANTHROPIC` (Claude SDK) |
+| `BRAVE_API_KEY` | Optional. When set, web search uses Brave Search API instead of DuckDuckGo. |
 | `PYCLAW_GOOGLE_CREDENTIALS_PATH` | `google.credentials_path` |
 | `PYCLAW_GOOGLE_TOKEN_PATH` | `google.token_path` |
 | `PYCLAW_MEMORY_DIR` | `memory.dir` |
@@ -352,7 +358,9 @@ pyclaw/
 
 **"load_extension" error with sqlite-vec** — Your Python's SQLite was compiled without extension loading. The app degrades gracefully to keyword-only search (no vector search). To fix, install Python from python.org or use `pyenv` with a build that supports extensions.
 
-**"ANTHROPIC_API_KEY not set"** — Create a `.env` file with your key, or export it in your shell.
+**"ANTHROPIC_API_KEY not set"** — Only when using `ANTHROPIC` provider: add the key to `.env` or export it.
+
+**"AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY must be set"** — When using default `AZURE_OPENAI` provider: add these to `.env`.
 
 **Google OAuth fails** — Ensure `credentials.json` exists in the project root. Download it from [Google Cloud Console](https://console.cloud.google.com/) > Credentials.
 

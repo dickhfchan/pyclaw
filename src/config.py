@@ -80,7 +80,8 @@ class SkillsConfig:
 
 @dataclass
 class AgentConfig:
-    model: str = "claude-sonnet-4-20250514"
+    provider: str = "AZURE_OPENAI"  # AZURE_OPENAI | ANTHROPIC
+    model: str = "gpt-5"  # deployment name for Azure, model id for Anthropic
     session_timeout_minutes: int = 30
     permission_mode: str = "bypassPermissions"
 
@@ -117,11 +118,16 @@ def _apply_env_overrides(raw: dict[str, Any]) -> dict[str, Any]:
     """Override config values with environment variables."""
     env_map = {
         "ANTHROPIC_API_KEY": None,  # handled by SDK directly
+        "AZURE_OPENAI_ENDPOINT": None,  # handled by agent when provider=AZURE_OPENAI
+        "AZURE_OPENAI_API_KEY": None,
+        "AZURE_OPENAI_API_VERSION": None,
+        "AZURE_OPENAI_DEPLOYMENT_NAME": ("agent", "model"),
         "PYCLAW_GOOGLE_CREDENTIALS_PATH": ("google", "credentials_path"),
         "PYCLAW_GOOGLE_TOKEN_PATH": ("google", "token_path"),
         "PYCLAW_MEMORY_DIR": ("memory", "dir"),
         "PYCLAW_MEMORY_DB_PATH": ("memory", "db_path"),
         "PYCLAW_SKILLS_DIR": ("skills", "dir"),
+        "PYCLAW_AGENT_PROVIDER": ("agent", "provider"),
         "PYCLAW_AGENT_MODEL": ("agent", "model"),
     }
     for env_var, path in env_map.items():

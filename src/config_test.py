@@ -21,12 +21,17 @@ class TestLoadConfig:
         assert isinstance(cfg, Config)
         assert cfg.memory.dir == "memory"
         assert cfg.memory.chunk_tokens == 2000
-        assert cfg.agent.model == "claude-sonnet-4-20250514"
+        assert cfg.agent.provider == "AZURE_OPENAI"
+        assert cfg.agent.model == "gpt-5"
         assert cfg.heartbeat.enabled is False
         assert cfg.adapters.terminal.enabled is True
         assert cfg.adapters.whatsapp.enabled is False
 
-    def test_loads_from_file(self, tmp_path: Path) -> None:
+    def test_loads_from_file(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        # So file value wins: don't load .env and clear env overrides for agent.model
+        monkeypatch.setattr("src.config._load_dotenv", lambda _env_path=None: None)
+        monkeypatch.delenv("AZURE_OPENAI_DEPLOYMENT_NAME", raising=False)
+        monkeypatch.delenv("PYCLAW_AGENT_MODEL", raising=False)
         config_file = tmp_path / "config.yaml"
         _write_yaml(config_file, {
             "memory": {"dir": "custom_memory", "chunk_tokens": 1000},
