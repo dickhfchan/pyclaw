@@ -115,7 +115,13 @@ AZURE_TOOLS = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "code": {"type": "string", "description": "Python code to execute."},
+                    "code": {"type": "string", "description": "Python code to execute inline (mutually exclusive with 'path')."},
+                    "path": {"type": "string", "description": "Optional path to a Python script to execute instead of inline code."},
+                    "args": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "Optional list of arguments to pass to the script when using 'path'.",
+                    },
                     "timeout_seconds": {
                         "type": "integer",
                         "description": "Maximum time to allow the code to run before it is killed (default 30).",
@@ -340,18 +346,33 @@ def _get_stock_quote_sync(symbol: str) -> str:
         return f"Could not fetch quote for {symbol}: {e}"
 
 
-def _run_python_sync(code: str, timeout_seconds: int = 30) -> str:
-    """Run a short Python snippet locally and return stdout/stderr.
+def _run_python_sync(
+    code: str | None,
+    timeout_seconds: int = 30,
+    path: str | None = None,
+    args: list[str] | None = None,
+) -> str:
+    """Run a Python snippet or script locally and return stdout/stderr.
 
-    This runs `python3 -c <code>` in the current working directory with a timeout.
-    Intended for small, self-contained snippets – not long-running jobs.
+    - If `path` is provided, runs `python3 path [args...]`.
+    - Otherwise runs `python3 -c <code>`.
     """
-    code = (code or "").strip()
-    if not code:
-        return "No Python code provided."
-    try:
-        # Prefer python3; fall back to python if needed.
+    timeout = max(1, int(timeout_seconds))
+    try_cmds: list[list[str]]
+
+    if path:
+        script = path.strip()
+        if not script:
+            return "No Python script path provided."
+        arg_list = args or []
+        try_cmds = [["python3", script, *arg_list], ["python", script, *arg_list]]
+    else:
+        code = (code or "").strip()
+        if not code:
+            return "No Python code provided."
         try_cmds = [["python3", "-c", code], ["python", "-c", code]]
+
+    try:
         last_err: str | None = None
         for cmd in try_cmds:
             try:
@@ -359,7 +380,7 @@ def _run_python_sync(code: str, timeout_seconds: int = 30) -> str:
                     cmd,
                     capture_output=True,
                     text=True,
-                    timeout=max(1, int(timeout_seconds)),
+                    timeout=timeout,
                 )
                 out = proc.stdout or ""
                 err = proc.stderr or ""
@@ -372,7 +393,7 @@ def _run_python_sync(code: str, timeout_seconds: int = 30) -> str:
                 continue
         return f"Could not find a Python interpreter to run code. Last error: {last_err}"
     except subprocess.TimeoutExpired:
-        return f"Python code timed out after {timeout_seconds} seconds."
+        return f"Python code timed out after {timeout} seconds."
     except Exception as e:  # pragma: no cover - defensive
         logger.exception("run_python failed")
         return f"Python execution failed: {e}"
@@ -480,13 +501,15 @@ class Agent:
         @tool(
             "run_python",
             "Run a short Python snippet locally and return stdout/stderr.",
-            {"code": str, "timeout_seconds": int},
+            {"code": str, "timeout_seconds": int, "path": str, "args": list[str]},
         )
         async def run_python_tool(args: dict[str, Any]) -> dict[str, Any]:
             text = await asyncio.to_thread(
                 _run_python_sync,
-                args.get("code", ""),
+                args.get("code"),
                 args.get("timeout_seconds", 30),
+                args.get("path"),
+                args.get("args"),
             )
             return {"content": [{"type": "text", "text": text}]}
 
@@ -567,8 +590,10 @@ class Agent:
         if name == "run_python":
             return await asyncio.to_thread(
                 _run_python_sync,
-                arguments.get("code", ""),
+                arguments.get("code"),
                 arguments.get("timeout_seconds", 30),
+                arguments.get("path"),
+                arguments.get("args"),
             )
         return f"Unknown tool: {name}"
 
