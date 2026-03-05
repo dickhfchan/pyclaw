@@ -60,11 +60,12 @@ class TerminalAdapter(Adapter):
 
         while self._running:
             try:
-                self._stdout.write("\nyou> ")
-                self._stdout.flush()
                 if readline and self._stdin is sys.stdin:
-                    line = input().strip()
+                    # Pass prompt to input() so readline keeps cursor right of "you> "
+                    line = input("\nyou> ").strip()
                 else:
+                    self._stdout.write("\nyou> ")
+                    self._stdout.flush()
                     line = self._stdin.readline()
                     if not line:
                         break

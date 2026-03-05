@@ -3,9 +3,11 @@ from __future__ import annotations
 import json
 import logging
 import os
+import subprocess
 import urllib.request
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
@@ -14,9 +16,14 @@ import asyncio
 from claude_agent_sdk import (
     ClaudeAgentOptions,
     TextBlock,
+    create_sdk_mcp_server,
     query,
     tool,
-    create_sdk_mcp_server,
+)
+from claude_agent_sdk.types import (
+    McpHttpServerConfig,
+    McpSSEServerConfig,
+    McpStdioServerConfig,
 )
 from openai import AsyncAzureOpenAI
 
@@ -100,7 +107,113 @@ AZURE_TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_python",
+            "description": "Run a short Python snippet locally and return stdout/stderr. Use for quick calculations, data inspection, or scripting tasks that must run on the user's machine.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "code": {"type": "string", "description": "Python code to execute."},
+                    "timeout_seconds": {
+                        "type": "integer",
+                        "description": "Maximum time to allow the code to run before it is killed (default 30).",
+                        "default": 30,
+                    },
+                },
+                "required": ["code"],
+            },
+        },
+    },
 ]
+
+
+def _load_extra_mcp_servers() -> dict[str, McpStdioServerConfig | McpSSEServerConfig | McpHttpServerConfig]:
+    """Load additional MCP servers from a JSON config pointed to by PYCLAW_MCP_CONFIG_PATH.
+
+    The file format is compatible with Claude's `.mcp.json`:
+
+    {
+      "servers": {
+        "my-stdio-server": {
+          "type": "stdio",
+          "command": "my-mcp-binary",
+          "args": ["--flag"],
+          "env": { "KEY": "VALUE" },
+          "cwd": "/optional/working/dir"
+        },
+        "my-http-server": {
+          "type": "http",
+          "url": "https://example.com/mcp",
+          "headers": { "Authorization": "Bearer ..." }
+        },
+        "my-sse-server": {
+          "type": "sse",
+          "url": "https://example.com/mcp",
+          "headers": { "Authorization": "Bearer ..." }
+        }
+      }
+    }
+    """
+    path = os.environ.get("PYCLAW_MCP_CONFIG_PATH")
+    if not path:
+        return {}
+    p = Path(path).expanduser()
+    if not p.exists():
+        logger.warning("PYCLAW_MCP_CONFIG_PATH does not exist: %s", p)
+        return {}
+    try:
+        with p.open() as f:
+            data = json.load(f)
+    except Exception:
+        logger.exception("Failed to load MCP config from %s", p)
+        return {}
+
+    servers_cfg = data.get("servers", {})
+    result: dict[str, McpStdioServerConfig | McpSSEServerConfig | McpHttpServerConfig] = {}
+    for server_id, cfg in servers_cfg.items():
+        t = cfg.get("type")
+        try:
+            if t == "stdio":
+                cmd = cfg.get("command")
+                if not cmd:
+                    logger.warning("Skipping stdio MCP server %s: missing 'command'", server_id)
+                    continue
+                args = cfg.get("args") or []
+                env = cfg.get("env") or {}
+                cwd = cfg.get("cwd")
+                result[server_id] = McpStdioServerConfig(
+                    command=cmd,
+                    args=args,
+                    env=env,
+                    cwd=cwd,
+                )
+            elif t == "http":
+                url = cfg.get("url")
+                if not url:
+                    logger.warning("Skipping http MCP server %s: missing 'url'", server_id)
+                    continue
+                headers = cfg.get("headers") or {}
+                result[server_id] = McpHttpServerConfig(
+                    url=url,
+                    headers=headers,
+                )
+            elif t == "sse":
+                url = cfg.get("url")
+                if not url:
+                    logger.warning("Skipping sse MCP server %s: missing 'url'", server_id)
+                    continue
+                headers = cfg.get("headers") or {}
+                result[server_id] = McpSSEServerConfig(
+                    url=url,
+                    headers=headers,
+                )
+            else:
+                logger.warning("Unknown MCP server type %s for %s", t, server_id)
+        except Exception:
+            logger.exception("Failed to construct MCP server config for %s", server_id)
+    return result
 
 
 async def _prompt_stream(text: str) -> AsyncIterator[dict[str, Any]]:
@@ -227,6 +340,44 @@ def _get_stock_quote_sync(symbol: str) -> str:
         return f"Could not fetch quote for {symbol}: {e}"
 
 
+def _run_python_sync(code: str, timeout_seconds: int = 30) -> str:
+    """Run a short Python snippet locally and return stdout/stderr.
+
+    This runs `python3 -c <code>` in the current working directory with a timeout.
+    Intended for small, self-contained snippets – not long-running jobs.
+    """
+    code = (code or "").strip()
+    if not code:
+        return "No Python code provided."
+    try:
+        # Prefer python3; fall back to python if needed.
+        try_cmds = [["python3", "-c", code], ["python", "-c", code]]
+        last_err: str | None = None
+        for cmd in try_cmds:
+            try:
+                proc = subprocess.run(
+                    cmd,
+                    capture_output=True,
+                    text=True,
+                    timeout=max(1, int(timeout_seconds)),
+                )
+                out = proc.stdout or ""
+                err = proc.stderr or ""
+                if proc.returncode == 0:
+                    return out.strip() or "(no output)"
+                # Non-zero exit: include stderr for debugging.
+                return f"Python exited with code {proc.returncode}.\nSTDOUT:\n{out}\nSTDERR:\n{err}"
+            except FileNotFoundError as e:
+                last_err = str(e)
+                continue
+        return f"Could not find a Python interpreter to run code. Last error: {last_err}"
+    except subprocess.TimeoutExpired:
+        return f"Python code timed out after {timeout_seconds} seconds."
+    except Exception as e:  # pragma: no cover - defensive
+        logger.exception("run_python failed")
+        return f"Python execution failed: {e}"
+
+
 async def _fetch_weather(city: str, format: str = "3") -> str:
     """Fetch weather for a city from wttr.in (no API key). Runs in thread to avoid blocking."""
     if not city or not city.strip():
@@ -326,26 +477,53 @@ class Agent:
             text = await asyncio.to_thread(_get_stock_quote_sync, args.get("symbol", ""))
             return {"content": [{"type": "text", "text": text}]}
 
+        @tool(
+            "run_python",
+            "Run a short Python snippet locally and return stdout/stderr.",
+            {"code": str, "timeout_seconds": int},
+        )
+        async def run_python_tool(args: dict[str, Any]) -> dict[str, Any]:
+            text = await asyncio.to_thread(
+                _run_python_sync,
+                args.get("code", ""),
+                args.get("timeout_seconds", 30),
+            )
+            return {"content": [{"type": "text", "text": text}]}
+
         self._search_memory_tool = search_memory_tool
         self._send_notification_tool = send_notification_tool
         self._mcp_server = (
             create_sdk_mcp_server(
                 name="pyclaw",
                 version="0.1.0",
-                tools=[search_memory_tool, send_notification_tool, get_weather_tool, search_web_tool, get_stock_quote_tool],
+                tools=[
+                    search_memory_tool,
+                    send_notification_tool,
+                    get_weather_tool,
+                    search_web_tool,
+                    get_stock_quote_tool,
+                    run_python_tool,
+                ],
             )
             if config.agent.provider == "ANTHROPIC"
             else None
         )
+        # Extra MCP client servers loaded from PYCLAW_MCP_CONFIG_PATH
+        self._extra_mcp_servers = _load_extra_mcp_servers()
         self._custom_tools = [search_memory_tool, send_notification_tool]
 
     def _build_options(self, system_prompt: str) -> ClaudeAgentOptions:
         """Build SDK options with custom MCP tools and system prompt."""
+        mcp_servers: dict[str, Any] = {}
+        if self._mcp_server is not None:
+            mcp_servers["pyclaw"] = self._mcp_server
+        # External MCP servers from config
+        mcp_servers.update(self._extra_mcp_servers)
         return ClaudeAgentOptions(
             model=self.config.agent.model,
             system_prompt=system_prompt,
             permission_mode=self.config.agent.permission_mode,
-            mcp_servers={"pyclaw": self._mcp_server},
+            mcp_servers=mcp_servers,
             allowed_tools=[
                 "Read", "Write", "Bash", "Glob", "Grep",
                 "mcp__pyclaw__search_memory",
@@ -353,6 +531,7 @@ class Agent:
                 "mcp__pyclaw__get_weather",
                 "mcp__pyclaw__search_web",
                 "mcp__pyclaw__get_stock_quote",
+                "mcp__pyclaw__run_python",
             ],
         )
 
@@ -385,6 +564,12 @@ class Agent:
             )
         if name == "get_stock_quote":
             return await asyncio.to_thread(_get_stock_quote_sync, arguments.get("symbol", ""))
+        if name == "run_python":
+            return await asyncio.to_thread(
+                _run_python_sync,
+                arguments.get("code", ""),
+                arguments.get("timeout_seconds", 30),
+            )
         return f"Unknown tool: {name}"
 
     async def _chat_azure(
