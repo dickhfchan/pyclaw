@@ -132,6 +132,25 @@ AZURE_TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "run_shell",
+            "description": "Run a short shell command locally (macOS/Linux) and return stdout/stderr. Use for quick checks or file operations that must run on the user's machine.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {"type": "string", "description": "Shell command to execute (e.g. 'ls -la')."},
+                    "timeout_seconds": {
+                        "type": "integer",
+                        "description": "Maximum time to allow the command to run before it is killed (default 30).",
+                        "default": 30,
+                    },
+                },
+                "required": ["command"],
+            },
+        },
+    },
 ]
 
 
@@ -399,6 +418,39 @@ def _run_python_sync(
         return f"Python execution failed: {e}"
 
 
+def _run_shell_sync(command: str | None, timeout_seconds: int = 30) -> str:
+    """Run a short shell command locally and return stdout/stderr.
+
+    Uses the system shell (e.g. bash/zsh) and enforces a timeout.
+    Intended for simple, self-contained commands – not long-running daemons.
+    """
+    command = (command or "").strip()
+    if not command:
+        return "No shell command provided."
+    timeout = max(1, int(timeout_seconds))
+    try:
+        proc = subprocess.run(
+            command,
+            shell=True,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+        )
+        out = proc.stdout or ""
+        err = proc.stderr or ""
+        if proc.returncode == 0:
+            # Include stderr only if there was something useful.
+            if err.strip():
+                return (out + "\n\n[stderr]\n" + err).strip()
+            return out.strip() or "(no output)"
+        return f"Shell exited with code {proc.returncode}.\nSTDOUT:\n{out}\nSTDERR:\n{err}"
+    except subprocess.TimeoutExpired:
+        return f"Shell command timed out after {timeout} seconds."
+    except Exception as e:  # pragma: no cover - defensive
+        logger.exception("run_shell failed")
+        return f"Shell execution failed: {e}"
+
+
 async def _fetch_weather(city: str, format: str = "3") -> str:
     """Fetch weather for a city from wttr.in (no API key). Runs in thread to avoid blocking."""
     if not city or not city.strip():
@@ -513,6 +565,19 @@ class Agent:
             )
             return {"content": [{"type": "text", "text": text}]}
 
+        @tool(
+            "run_shell",
+            "Run a short shell command locally (macOS/Linux) and return stdout/stderr.",
+            {"command": str, "timeout_seconds": int},
+        )
+        async def run_shell_tool(args: dict[str, Any]) -> dict[str, Any]:
+            text = await asyncio.to_thread(
+                _run_shell_sync,
+                args.get("command"),
+                args.get("timeout_seconds", 30),
+            )
+            return {"content": [{"type": "text", "text": text}]}
+
         self._search_memory_tool = search_memory_tool
         self._send_notification_tool = send_notification_tool
         self._mcp_server = (
@@ -526,6 +591,7 @@ class Agent:
                     search_web_tool,
                     get_stock_quote_tool,
                     run_python_tool,
+                    run_shell_tool,
                 ],
             )
             if config.agent.provider == "ANTHROPIC"
@@ -555,6 +621,7 @@ class Agent:
                 "mcp__pyclaw__search_web",
                 "mcp__pyclaw__get_stock_quote",
                 "mcp__pyclaw__run_python",
+                "mcp__pyclaw__run_shell",
             ],
         )
 
@@ -594,6 +661,12 @@ class Agent:
                 arguments.get("timeout_seconds", 30),
                 arguments.get("path"),
                 arguments.get("args"),
+            )
+        if name == "run_shell":
+            return await asyncio.to_thread(
+                _run_shell_sync,
+                arguments.get("command"),
+                arguments.get("timeout_seconds", 30),
             )
         return f"Unknown tool: {name}"
 
