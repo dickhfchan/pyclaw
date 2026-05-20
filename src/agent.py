@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import ssl
 import subprocess
 import urllib.request
 from collections.abc import AsyncIterator
@@ -25,7 +26,7 @@ from claude_agent_sdk.types import (
     McpSSEServerConfig,
     McpStdioServerConfig,
 )
-from openai import AsyncAzureOpenAI
+from openai import AsyncAzureOpenAI, AsyncOpenAI
 
 from src.config import Config
 from src.memory.manager import MemoryManager
@@ -33,6 +34,21 @@ from src.skills.loader import format_skills_list
 from src.skills.types import Skill
 
 logger = logging.getLogger(__name__)
+
+
+def _http_get_text(
+    url: str,
+    headers: dict[str, str] | None = None,
+    timeout: float = 10,
+) -> str:
+    """GET url and return response body as text (uses certifi CA bundle for TLS)."""
+    import certifi
+
+    req = urllib.request.Request(url, headers=headers or {})
+    ctx = ssl.create_default_context(cafile=certifi.where())
+    with urllib.request.urlopen(req, timeout=timeout, context=ctx) as resp:
+        return resp.read().decode("utf-8", errors="replace")
+
 
 # OpenAI-format tools for Azure OpenAI
 AZURE_TOOLS = [
@@ -295,15 +311,16 @@ def _search_web_sync(query: str, max_results: int = 5) -> str:
     if brave_key:
         try:
             url = "https://api.search.brave.com/res/v1/web/search"
-            req = urllib.request.Request(
-                f"{url}?q={quote(query)}",
-                headers={
-                    "Accept": "application/json",
-                    "X-Subscription-Token": brave_key,
-                },
+            data = json.loads(
+                _http_get_text(
+                    f"{url}?q={quote(query)}",
+                    headers={
+                        "Accept": "application/json",
+                        "X-Subscription-Token": brave_key,
+                    },
+                    timeout=15,
+                )
             )
-            with urllib.request.urlopen(req, timeout=15) as resp:
-                data = json.loads(resp.read().decode())
             results = (data.get("web") or {}).get("results") or []
             if not results:
                 return "No web results found."
@@ -341,9 +358,7 @@ def _get_stock_quote_sync(symbol: str) -> str:
         return "Please provide a stock ticker symbol (e.g. MU, AAPL)."
     url = f"https://query1.finance.yahoo.com/v7/finance/quote?symbols={quote(symbol)}"
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "curl/7"})
-        with urllib.request.urlopen(req, timeout=10) as resp:
-            data = json.loads(resp.read().decode())
+        data = json.loads(_http_get_text(url, headers={"User-Agent": "curl/7"}))
         results = (data.get("quoteResponse") or {}).get("result") or []
         if not results:
             return f"No quote found for {symbol}. Check the ticker symbol."
@@ -458,11 +473,10 @@ async def _fetch_weather(city: str, format: str = "3") -> str:
     city_escaped = quote(city.strip())
     url = f"https://wttr.in/{city_escaped}?format={format}"
     try:
-        def _get() -> str:
-            req = urllib.request.Request(url, headers={"User-Agent": "curl/7"})
-            with urllib.request.urlopen(req, timeout=10) as resp:
-                return resp.read().decode("utf-8", errors="replace").strip()
-        return await asyncio.to_thread(_get)
+        text = await asyncio.to_thread(
+            _http_get_text, url, {"User-Agent": "curl/7"}
+        )
+        return text.strip()
     except Exception as e:
         logger.warning("Weather fetch failed: %s", e)
         return f"Could not fetch weather for {city}: {e}"
@@ -479,19 +493,32 @@ def _extract_text(messages: list[Any]) -> str:
     return "\n".join(text_parts)
 
 
+def _uses_openai_compat(provider: str) -> bool:
+    return provider in ("AZURE_OPENAI", "LOCAL_OPENAI")
+
+
 @asynccontextmanager
-async def _azure_client():
-    """Yield an Azure OpenAI client and close it on exit to avoid 'Event loop is closed' errors."""
-    endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
-    api_key = os.environ.get("AZURE_OPENAI_API_KEY")
-    api_version = os.environ.get("AZURE_OPENAI_API_VERSION", "2025-01-01-preview")
-    if not endpoint or not api_key:
-        raise ValueError("AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY must be set when provider=AZURE_OPENAI")
-    client = AsyncAzureOpenAI(
-        azure_endpoint=endpoint.rstrip("/"),
-        api_key=api_key,
-        api_version=api_version,
-    )
+async def _openai_client(provider: str):
+    """Yield an OpenAI-compatible client (Azure or local Ollama/LM Studio)."""
+    if provider == "AZURE_OPENAI":
+        endpoint = os.environ.get("AZURE_OPENAI_ENDPOINT")
+        api_key = os.environ.get("AZURE_OPENAI_API_KEY")
+        api_version = os.environ.get("AZURE_OPENAI_API_VERSION", "2025-01-01-preview")
+        if not endpoint or not api_key:
+            raise ValueError(
+                "AZURE_OPENAI_ENDPOINT and AZURE_OPENAI_API_KEY must be set when provider=AZURE_OPENAI"
+            )
+        client = AsyncAzureOpenAI(
+            azure_endpoint=endpoint.rstrip("/"),
+            api_key=api_key,
+            api_version=api_version,
+        )
+    elif provider == "LOCAL_OPENAI":
+        base_url = os.environ.get("PYCLAW_OPENAI_BASE_URL", "http://127.0.0.1:11434/v1")
+        api_key = os.environ.get("PYCLAW_OPENAI_API_KEY", "ollama")
+        client = AsyncOpenAI(base_url=base_url.rstrip("/"), api_key=api_key)
+    else:
+        raise ValueError(f"Unsupported OpenAI-compatible provider: {provider}")
     async with client:
         yield client
 
@@ -670,22 +697,22 @@ class Agent:
             )
         return f"Unknown tool: {name}"
 
-    async def _chat_azure(
+    async def _chat_openai_compat(
         self, messages: list[dict[str, Any]], query_text: str
     ) -> tuple[str, list[dict[str, Any]]]:
-        """One conversation turn using Azure OpenAI with tool calling."""
+        """One conversation turn using an OpenAI-compatible API with tool calling."""
         system_prompt = _build_system_prompt(self.memory, self.skills, query_text)
-        deployment = self.config.agent.model
+        model = self.config.agent.model
         openai_messages: list[dict[str, Any]] = [
             {"role": "system", "content": system_prompt},
             *messages,
             {"role": "user", "content": query_text},
         ]
         max_turns = 15
-        async with _azure_client() as client:
+        async with _openai_client(self.config.agent.provider) as client:
             for _ in range(max_turns):
                 response = await client.chat.completions.create(
-                    model=deployment,
+                    model=model,
                     messages=openai_messages,
                     tools=AZURE_TOOLS,
                     tool_choice="auto",
@@ -716,7 +743,7 @@ class Agent:
                     openai_messages.append(
                         {"role": "tool", "tool_call_id": tc.id, "content": result}
                     )
-        logger.warning("Azure chat hit max_turns")
+        logger.warning("OpenAI-compat chat hit max_turns")
         text = openai_messages[-1].get("content", "") if openai_messages else ""
         updated = messages + [
             {"role": "user", "content": query_text},
@@ -724,10 +751,10 @@ class Agent:
         ]
         return text, updated
 
-    async def _reason_azure(self, context: str, prompt: str) -> str | None:
-        """Single-turn reasoning using Azure OpenAI (no tools)."""
+    async def _reason_openai_compat(self, context: str, prompt: str) -> str | None:
+        """Single-turn reasoning using an OpenAI-compatible API (no tools)."""
         try:
-            async with _azure_client() as client:
+            async with _openai_client(self.config.agent.provider) as client:
                 response = await client.chat.completions.create(
                     model=self.config.agent.model,
                     messages=[
@@ -738,7 +765,7 @@ class Agent:
                 text = (response.choices[0].message.content or "").strip()
                 return text or None
         except Exception:
-            logger.exception("Azure reason call failed")
+            logger.exception("OpenAI-compat reason call failed")
             return None
 
     async def chat(
@@ -753,8 +780,8 @@ class Agent:
         Returns:
             A tuple of (response_text, updated_messages).
         """
-        if self.config.agent.provider == "AZURE_OPENAI":
-            return await self._chat_azure(messages, query_text)
+        if _uses_openai_compat(self.config.agent.provider):
+            return await self._chat_openai_compat(messages, query_text)
 
         system_prompt = _build_system_prompt(self.memory, self.skills, query_text)
         options = self._build_options(system_prompt)
@@ -780,8 +807,8 @@ class Agent:
 
         Returns the response text, or None on failure.
         """
-        if self.config.agent.provider == "AZURE_OPENAI":
-            return await self._reason_azure(context, prompt)
+        if _uses_openai_compat(self.config.agent.provider):
+            return await self._reason_openai_compat(context, prompt)
         try:
             options = ClaudeAgentOptions(
                 model=self.config.agent.model,

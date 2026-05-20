@@ -1,4 +1,5 @@
 claude-agent-sdk
+certifi
 openai
 ddgs
 fastembed

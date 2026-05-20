@@ -39,8 +39,8 @@ skills:
   dir: skills
 
 agent:
-  provider: AZURE_OPENAI   # AZURE_OPENAI (default) | ANTHROPIC
-  model: gpt-5             # deployment name for Azure; model id for Anthropic
+  provider: LOCAL_OPENAI   # AZURE_OPENAI | LOCAL_OPENAI (Ollama) | ANTHROPIC
+  model: gemma4:e2b        # Ollama model; Azure deployment name; Anthropic model id
   session_timeout_minutes: 30
 
 google:

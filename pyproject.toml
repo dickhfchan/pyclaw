@@ -8,6 +8,7 @@ version = "0.1.0"
 description = "Ultra-personalized AI agent — local-first, Markdown-powered, multi-channel"
 requires-python = ">=3.12"
 dependencies = [
+    "certifi",
     "claude-agent-sdk",
     "fastembed",
     "sqlite-vec",

@@ -80,8 +80,8 @@ class SkillsConfig:
 
 @dataclass
 class AgentConfig:
-    provider: str = "AZURE_OPENAI"  # AZURE_OPENAI | ANTHROPIC
-    model: str = "gpt-5"  # deployment name for Azure, model id for Anthropic
+    provider: str = "AZURE_OPENAI"  # AZURE_OPENAI | LOCAL_OPENAI | ANTHROPIC
+    model: str = "gpt-5"  # Azure deployment, Ollama model, or Anthropic model id
     session_timeout_minutes: int = 30
     permission_mode: str = "bypassPermissions"
 

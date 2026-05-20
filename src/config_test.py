@@ -16,7 +16,10 @@ def _write_yaml(path: Path, data: dict) -> None:
 
 
 class TestLoadConfig:
-    def test_defaults_when_no_file(self, tmp_path: Path) -> None:
+    def test_defaults_when_no_file(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr("src.config._load_dotenv", lambda _env_path=None: None)
+        monkeypatch.delenv("PYCLAW_AGENT_PROVIDER", raising=False)
+        monkeypatch.delenv("PYCLAW_AGENT_MODEL", raising=False)
         cfg = load_config(tmp_path / "nonexistent.yaml")
         assert isinstance(cfg, Config)
         assert cfg.memory.dir == "memory"
