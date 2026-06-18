@@ -40,7 +40,7 @@ skills:
 
 agent:
   provider: LOCAL_OPENAI   # AZURE_OPENAI | LOCAL_OPENAI (Ollama) | ANTHROPIC
-  model: gemma4:e2b        # Ollama model; Azure deployment name; Anthropic model id
+  model: gemma4:e4b-mlx   # Ollama model; Azure deployment name; Anthropic model id
   session_timeout_minutes: 30
 
 google:
