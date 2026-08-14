@@ -3,6 +3,7 @@ import SwiftUI
 struct TreeMapView: View {
     let node: DiskNode
     let onTap: (DiskNode) -> Void
+    let onHoverNode: (DiskNode?) -> Void
 
     var body: some View {
         GeometryReader { geo in
@@ -10,7 +11,14 @@ struct TreeMapView: View {
             let tiles = squarify(children: node.children ?? [], in: rect)
             ZStack(alignment: .topLeading) {
                 ForEach(tiles, id: \.0.id) { (child, tileRect) in
-                    TileView(node: child, rect: tileRect, onTap: onTap)
+                    TileView(
+                        node: child,
+                        rect: tileRect,
+                        onTap: onTap,
+                        onHover: { isHovering in
+                            onHoverNode(isHovering ? child : nil)
+                        }
+                    )
                 }
             }
         }
@@ -86,6 +94,7 @@ private struct TileView: View {
     let node: DiskNode
     let rect: CGRect
     let onTap: (DiskNode) -> Void
+    let onHover: (Bool) -> Void
     @State private var isHovered = false
 
     var body: some View {
@@ -115,7 +124,10 @@ private struct TileView: View {
         }
         .frame(width: rect.width, height: rect.height)
         .offset(x: rect.minX, y: rect.minY)
-        .onHover { isHovered = $0 }
+        .onHover {
+            isHovered = $0
+            onHover($0)
+        }
         .onTapGesture { onTap(node) }
         .help("\(node.name) — \(SizeLabel.format(node.size))")
     }

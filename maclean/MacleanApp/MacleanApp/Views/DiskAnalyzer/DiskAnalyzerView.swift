@@ -28,6 +28,18 @@ struct DiskAnalyzerView: View {
             .padding(.top, 20)
             .padding(.bottom, 12)
 
+            if let err = vm.errorMessage {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text(err)
+                        .font(.callout)
+                    Spacer()
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 8)
+            }
+
             // Breadcrumb
             if !vm.path.isEmpty {
                 ScrollView(.horizontal, showsIndicators: false) {
@@ -66,9 +78,15 @@ struct DiskAnalyzerView: View {
                 .frame(maxHeight: .infinity)
             } else if let current = vm.currentNode {
                 if let children = current.children, !children.isEmpty {
-                    TreeMapView(node: current) { tapped in
-                        vm.drillInto(tapped)
-                    }
+                    TreeMapView(
+                        node: current,
+                        onTap: { tapped in
+                            vm.drillInto(tapped)
+                        },
+                        onHoverNode: { node in
+                            hoveredNode = node
+                        }
+                    )
                     .padding(16)
                 } else {
                     ContentUnavailableView(

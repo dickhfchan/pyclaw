@@ -22,6 +22,18 @@ struct OptimizerView: View {
             .padding(.top, 20)
             .padding(.bottom, 12)
 
+            if let err = vm.errorMessage {
+                HStack {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                    Text(err)
+                        .font(.callout)
+                    Spacer()
+                }
+                .padding(.horizontal, 24)
+                .padding(.bottom, 8)
+            }
+
             if !vm.tasks.isEmpty {
                 HStack(spacing: 20) {
                     Label("\(vm.passCount) passed", systemImage: "checkmark.circle.fill")

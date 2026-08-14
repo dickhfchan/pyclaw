@@ -45,6 +45,12 @@ actor MoleRunner {
 
     // Collect all output into a single string
     func collect(_ executableURL: URL, args: [String], stdinInput: String? = nil) async throws -> String {
+        // Ensure the target exists and is executable so we can surface a clear error
+        let path = executableURL.path
+        guard FileManager.default.isExecutableFile(atPath: path) else {
+            throw MoleError.scriptNotFound(path)
+        }
+
         let process = Process()
         process.executableURL = executableURL
         process.arguments = args
@@ -66,16 +72,22 @@ actor MoleRunner {
 
         try process.run()
 
-        // Read data asynchronously to avoid blocking the actor
-        let data = try await withCheckedThrowingContinuation { (cont: CheckedContinuation<Data, Error>) in
+        // Read data asynchronously to avoid blocking the actor, capturing both stdout and stderr
+        let (stdoutData, stderrData, terminationStatus) = try await withCheckedThrowingContinuation { (cont: CheckedContinuation<(Data, Data, Int32), Error>) in
             DispatchQueue.global().async {
-                let d = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+                let out = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+                let err = stderrPipe.fileHandleForReading.readDataToEndOfFile()
                 process.waitUntilExit()
-                cont.resume(returning: d)
+                cont.resume(returning: (out, err, process.terminationStatus))
             }
         }
 
-        guard let output = String(data: data, encoding: .utf8) else {
+        if terminationStatus != 0 {
+            let stderrString = String(data: stderrData, encoding: .utf8) ?? ""
+            throw MoleError.executionFailed(terminationStatus, stderrString.trimmingCharacters(in: .whitespacesAndNewlines))
+        }
+
+        guard let output = String(data: stdoutData, encoding: .utf8) else {
             throw MoleError.parseError("Non-UTF8 output")
         }
         return output
