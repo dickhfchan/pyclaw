@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>MySub</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <header id="header">
+    <div id="header-left">
+      <span id="app-title">MySub</span>
+      <div id="last-updated"></div>
+    </div>
+    <button id="refresh-btn">Refresh</button>
+  </header>
+
+  <div id="status-line"></div>
+
+  <main>
+    <div id="video-list"></div>
+    <div id="empty-state">
+      <div class="empty-title">No videos yet</div>
+      <div class="empty-desc">
+        Visit your
+        <button id="subs-link" class="link-btn">subscriptions feed</button>
+        to load your channels.
+      </div>
+    </div>
+  </main>
+
+  <div id="toast"></div>
+  <script src="popup.js"></script>
+</body>
+</html>

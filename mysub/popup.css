@@ -1,0 +1,203 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  width: 420px;
+  background: #0f0f0f;
+  color: #fff;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+  font-size: 13px;
+  overflow-x: hidden;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+
+#header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: #181818;
+  border-bottom: 1px solid #2a2a2a;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+#app-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #ff0000;
+  letter-spacing: -0.2px;
+}
+
+#last-updated {
+  font-size: 11px;
+  color: #888;
+  margin-top: 2px;
+}
+
+#refresh-btn {
+  background: #272727;
+  color: #e0e0e0;
+  border: 1px solid #3a3a3a;
+  border-radius: 4px;
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+  white-space: nowrap;
+}
+#refresh-btn:hover:not(:disabled) { background: #333; }
+#refresh-btn:disabled { opacity: 0.45; cursor: default; }
+
+/* ── Status bar ──────────────────────────────────────────── */
+
+#status-line {
+  font-size: 11px;
+  color: #777;
+  padding: 4px 14px;
+  background: #131313;
+  border-bottom: 1px solid #1e1e1e;
+  min-height: 22px;
+  line-height: 22px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+#status-line.error { color: #ff6b6b; }
+
+/* ── Video list ──────────────────────────────────────────── */
+
+#video-list {
+  max-height: 520px;
+  overflow-y: auto;
+}
+
+.video-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid #1e1e1e;
+  cursor: pointer;
+  outline: none;
+}
+.video-card:hover,
+.video-card:focus-visible { background: #1a1a1a; }
+.video-card:last-child { border-bottom: none; }
+
+.thumbnail {
+  width: 120px;
+  height: 68px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+  background: #222;
+}
+
+.info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.channel-name {
+  font-size: 11px;
+  color: #aaa;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.video-title {
+  font-size: 13px;
+  color: #e0e0e0;
+  line-height: 1.35;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.time {
+  font-size: 11px;
+  color: #777;
+}
+
+.badge-new {
+  font-size: 9px;
+  font-weight: 700;
+  background: #ff0000;
+  color: #fff;
+  padding: 1px 5px;
+  border-radius: 3px;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+
+/* ── Empty state ─────────────────────────────────────────── */
+
+#empty-state {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 44px 24px;
+  text-align: center;
+  gap: 10px;
+}
+
+.empty-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #ccc;
+}
+
+.empty-desc {
+  font-size: 12px;
+  color: #666;
+  line-height: 1.6;
+}
+
+.link-btn {
+  background: none;
+  border: none;
+  color: #3ea6ff;
+  cursor: pointer;
+  font-size: inherit;
+  padding: 0;
+  text-decoration: underline;
+}
+
+/* ── Toast ───────────────────────────────────────────────── */
+
+#toast {
+  position: fixed;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%) translateY(8px);
+  background: #333;
+  color: #fff;
+  padding: 7px 14px;
+  border-radius: 5px;
+  font-size: 12px;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+  pointer-events: none;
+  max-width: 380px;
+  text-align: center;
+  white-space: nowrap;
+}
+#toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
