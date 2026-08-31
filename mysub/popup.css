@@ -178,6 +178,49 @@ body {
   text-decoration: underline;
 }
 
+/* ── Settings footer ─────────────────────────────────────── */
+
+#settings-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px;
+  background: #141414;
+  border-top: 1px solid #2a2a2a;
+  position: sticky;
+  bottom: 0;
+}
+
+#settings-footer label {
+  font-size: 11px;
+  color: #777;
+  white-space: nowrap;
+}
+
+#threshold-select {
+  background: #1e1e1e;
+  color: #bbb;
+  border: 1px solid #333;
+  border-radius: 3px;
+  padding: 3px 6px;
+  font-size: 11px;
+  cursor: pointer;
+}
+#threshold-select:focus { outline: none; border-color: #555; }
+
+#clear-btn {
+  margin-left: auto;
+  background: none;
+  border: 1px solid #333;
+  color: #666;
+  border-radius: 3px;
+  padding: 3px 8px;
+  font-size: 11px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+#clear-btn:hover { color: #ff6b6b; border-color: #ff6b6b; }
+
 /* ── Toast ───────────────────────────────────────────────── */
 
 #toast {

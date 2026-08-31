@@ -1,16 +1,37 @@
-const NEW_THRESHOLD_MS = 24 * 60 * 60 * 1000;
+const DEFAULT_THRESHOLD_HOURS = 24;
 
 async function init() {
-  const { channels = {}, lastUpdated, lastScrapeStats } =
-    await chrome.storage.local.get(['channels', 'lastUpdated', 'lastScrapeStats']);
+  const { channels = {}, lastUpdated, lastScrapeStats, newThresholdHours = DEFAULT_THRESHOLD_HOURS } =
+    await chrome.storage.local.get(['channels', 'lastUpdated', 'lastScrapeStats', 'newThresholdHours']);
 
   setLastUpdated(lastUpdated);
-  renderList(channels);
+  renderList(channels, newThresholdHours);
   setStatusFromStats(lastScrapeStats, Object.keys(channels).length);
+  initSettings(newThresholdHours);
 
   document.getElementById('refresh-btn').addEventListener('click', handleRefresh);
   document.getElementById('subs-link').addEventListener('click', () => {
     chrome.tabs.create({ url: 'https://www.youtube.com/feed/subscriptions' });
+  });
+}
+
+function initSettings(savedHours) {
+  const sel = document.getElementById('threshold-select');
+  sel.value = String(savedHours);
+  if (!sel.value) sel.value = String(DEFAULT_THRESHOLD_HOURS); // fallback if stored value isn't an option
+
+  sel.addEventListener('change', async () => {
+    const hours = Number(sel.value);
+    await chrome.storage.local.set({ newThresholdHours: hours });
+    const { channels = {} } = await chrome.storage.local.get('channels');
+    renderList(channels, hours);
+  });
+
+  document.getElementById('clear-btn').addEventListener('click', async () => {
+    await chrome.storage.local.remove(['channels', 'lastUpdated', 'lastScrapeStats']);
+    renderList({}, Number(sel.value));
+    setLastUpdated(null);
+    setStatus('Data cleared');
   });
 }
 
@@ -49,7 +70,7 @@ function setStatusFromStats(stats, storedCount) {
   setStatus(parts.join(' · '));
 }
 
-function renderList(channels) {
+function renderList(channels, thresholdHours = DEFAULT_THRESHOLD_HOURS) {
   const list = document.getElementById('video-list');
   const empty = document.getElementById('empty-state');
   const entries = Object.values(channels);
@@ -66,9 +87,10 @@ function renderList(channels) {
 
   entries.sort((a, b) => b.firstSeen - a.firstSeen);
 
+  const thresholdMs = thresholdHours * 60 * 60 * 1000;
   const now = Date.now();
   for (const entry of entries) {
-    list.appendChild(buildCard(entry, now - entry.firstSeen < NEW_THRESHOLD_MS));
+    list.appendChild(buildCard(entry, now - entry.firstSeen < thresholdMs));
   }
 }
 
@@ -131,8 +153,9 @@ async function handleRefresh() {
 
   if (response?.ok) {
     // Storage is already written by background before it responded — no race condition
-    const { channels = {}, lastUpdated } = await chrome.storage.local.get(['channels', 'lastUpdated']);
-    renderList(channels);
+    const { channels = {}, lastUpdated, newThresholdHours = DEFAULT_THRESHOLD_HOURS } =
+      await chrome.storage.local.get(['channels', 'lastUpdated', 'newThresholdHours']);
+    renderList(channels, newThresholdHours);
     setLastUpdated(lastUpdated);
     setStatusFromStats(response.stats, Object.keys(channels).length);
   } else if (response?.reason === 'noTab') {
