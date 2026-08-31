@@ -13,6 +13,15 @@ async function init() {
   document.getElementById('subs-link').addEventListener('click', () => {
     chrome.tabs.create({ url: 'https://www.youtube.com/feed/subscriptions' });
   });
+
+  // Show extension ID for install.sh setup
+  const extIdEl = document.getElementById('ext-id');
+  extIdEl.textContent = chrome.runtime.id;
+  extIdEl.addEventListener('click', async () => {
+    await navigator.clipboard.writeText(chrome.runtime.id);
+    extIdEl.textContent = 'copied!';
+    setTimeout(() => { extIdEl.textContent = chrome.runtime.id; }, 1500);
+  });
 }
 
 function initSettings(savedHours) {
@@ -63,11 +72,12 @@ function setStatusFromStats(stats, storedCount) {
     );
     return;
   }
-  const parts = [`${stats.extracted} channels extracted from ${stats.itemsTotal} items`];
+  const parts = [`scraped ${stats.extracted} · stored ${storedCount}`];
   if (stats.itemsShorts > 0)            parts.push(`${stats.itemsShorts} Shorts skipped`);
   if (stats.itemsMissingSelectors > 0)  parts.push(`${stats.itemsMissingSelectors} missing selectors`);
   if (stats.itemsMissingData > 0)       parts.push(`${stats.itemsMissingData} missing data`);
-  setStatus(parts.join(' · '));
+  const hasStorageMismatch = stats.extracted > 0 && storedCount === 0;
+  setStatus(parts.join(' · '), hasStorageMismatch);
 }
 
 function renderList(channels, thresholdHours = DEFAULT_THRESHOLD_HOURS) {
@@ -103,9 +113,10 @@ function buildCard(entry, isNew) {
 
   const thumb = document.createElement('img');
   thumb.className = 'thumbnail';
-  thumb.src = entry.thumbnailUrl;
   thumb.alt = '';
-  thumb.loading = 'lazy';
+  // lazy loading doesn't fire in extension popups — use eager
+  thumb.src = entry.thumbnailUrl;
+  thumb.onerror = () => { thumb.style.opacity = '0.3'; };
 
   const info = document.createElement('div');
   info.className = 'info';
@@ -133,14 +144,48 @@ function buildCard(entry, isNew) {
     meta.appendChild(badge);
   }
 
+  const dlBtn = document.createElement('button');
+  dlBtn.className = 'dl-btn';
+  dlBtn.textContent = '↓';
+  dlBtn.title = 'Download with yt-dlp';
+  dlBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    handleDownload(entry, dlBtn);
+  });
+
   info.append(channelEl, titleEl, meta);
-  card.append(thumb, info);
+  card.append(thumb, info, dlBtn);
 
   function open() { chrome.tabs.create({ url: entry.videoUrl }); }
   card.addEventListener('click', open);
   card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') open(); });
 
   return card;
+}
+
+async function handleDownload(entry, btn) {
+  btn.disabled = true;
+  btn.textContent = '…';
+
+  const response = await chrome.runtime.sendMessage({
+    type: 'DOWNLOAD_VIDEO',
+    videoUrl: entry.videoUrl,
+  });
+
+  if (response?.status === 'started') {
+    btn.textContent = '✓';
+    btn.title = `Downloading to ~/Downloads/MySub`;
+    btn.classList.add('dl-done');
+  } else {
+    btn.textContent = '✗';
+    btn.disabled = false;
+    const err = response?.error ?? 'unknown error';
+    const notInstalled = err.toLowerCase().includes('not found') || err.toLowerCase().includes('cannot find');
+    btn.title = notInstalled
+      ? `Native host not installed. Run: ./native/install.sh ${chrome.runtime.id}`
+      : `Error: ${err}`;
+    btn.classList.add('dl-error');
+  }
 }
 
 async function handleRefresh() {
@@ -157,7 +202,10 @@ async function handleRefresh() {
       await chrome.storage.local.get(['channels', 'lastUpdated', 'newThresholdHours']);
     renderList(channels, newThresholdHours);
     setLastUpdated(lastUpdated);
-    setStatusFromStats(response.stats, Object.keys(channels).length);
+    // response.totalChannels = what background read back from storage after writing
+    // Object.keys(channels).length  = what popup reads from storage now
+    // If these differ there is a storage sync issue
+    setStatusFromStats(response.stats, response.totalChannels ?? Object.keys(channels).length);
   } else if (response?.reason === 'noTab') {
     setStatus('No subscriptions tab open — visit youtube.com/feed/subscriptions first', true);
   } else if (response?.reason === 'contentScriptError') {

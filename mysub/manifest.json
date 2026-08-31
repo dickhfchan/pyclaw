@@ -3,7 +3,7 @@
   "name": "MySub",
   "version": "0.1.0",
   "description": "See the latest video from each of your YouTube subscriptions at a glance.",
-  "permissions": ["storage", "tabs", "scripting"],
+  "permissions": ["storage", "tabs", "scripting", "nativeMessaging"],
   "host_permissions": ["https://www.youtube.com/*"],
   "background": {
     "service_worker": "background.js"

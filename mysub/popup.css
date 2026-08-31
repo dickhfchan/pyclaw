@@ -92,7 +92,8 @@ body {
   object-fit: cover;
   border-radius: 4px;
   flex-shrink: 0;
-  background: #222;
+  background: #2e2e2e;
+  border: 1px solid #333;
 }
 
 .info {
@@ -220,6 +221,43 @@ body {
   transition: color 0.15s, border-color 0.15s;
 }
 #clear-btn:hover { color: #ff6b6b; border-color: #ff6b6b; }
+
+.ext-id {
+  font-size: 10px;
+  color: #333;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90px;
+  user-select: none;
+  transition: color 0.15s;
+}
+.ext-id:hover { color: #777; }
+
+/* ── Download button ─────────────────────────────────────── */
+
+.dl-btn {
+  flex-shrink: 0;
+  align-self: center;
+  width: 28px;
+  height: 28px;
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #888;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  margin-left: 6px;
+}
+.dl-btn:hover:not(:disabled) { background: #2a2a2a; color: #fff; border-color: #555; }
+.dl-btn:disabled { opacity: 0.5; cursor: default; }
+.dl-btn.dl-done  { color: #4caf50; border-color: #4caf50; }
+.dl-btn.dl-error { color: #ff6b6b; border-color: #ff6b6b; }
 
 /* ── Toast ───────────────────────────────────────────────── */
 

@@ -1,4 +1,21 @@
+const NATIVE_HOST = 'com.mysub.downloader';
+
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message.type === 'DOWNLOAD_VIDEO') {
+    chrome.runtime.sendNativeMessage(
+      NATIVE_HOST,
+      { action: 'download', url: message.videoUrl },
+      (response) => {
+        if (chrome.runtime.lastError) {
+          sendResponse({ status: 'error', error: chrome.runtime.lastError.message });
+        } else {
+          sendResponse(response ?? { status: 'error', error: 'no response from host' });
+        }
+      }
+    );
+    return true; // keep channel open for async callback
+  }
+
   if (message.type === 'SCRAPED_VIDEOS') {
     mergeIntoStorage(message.videos, message.stats)
       .then(newCount => sendResponse({ ok: true, newCount }))
