@@ -1,13 +1,21 @@
 const DEFAULT_THRESHOLD_HOURS = 24;
 
+let statusMap = {};
+
+const DL_LABELS = { in_queue: 'in queue', downloading: 'downloading', downloaded: 'downloaded' };
+const UP_LABELS = { in_queue: 'in queue', uploading: 'uploading', uploaded: 'uploaded' };
+
 async function init() {
-  const { channels = {}, lastUpdated, lastScrapeStats, newThresholdHours = DEFAULT_THRESHOLD_HOURS } =
-    await chrome.storage.local.get(['channels', 'lastUpdated', 'lastScrapeStats', 'newThresholdHours']);
+  const { channels = {}, lastUpdated, lastScrapeStats, newThresholdHours = DEFAULT_THRESHOLD_HOURS, downloadBatch = {} } =
+    await chrome.storage.local.get(['channels', 'lastUpdated', 'lastScrapeStats', 'newThresholdHours', 'downloadBatch']);
 
   setLastUpdated(lastUpdated);
   renderList(channels, newThresholdHours);
+  renderDownloads(downloadBatch, {});   // placeholder chips; fetchStatus will refresh them
   setStatusFromStats(lastScrapeStats, Object.keys(channels).length);
   initSettings(newThresholdHours);
+  fetchStatus();
+  setInterval(fetchStatus, 15000);
 
   document.getElementById('refresh-btn').addEventListener('click', handleRefresh);
   document.getElementById('subs-link').addEventListener('click', () => {
@@ -37,7 +45,7 @@ function initSettings(savedHours) {
   });
 
   document.getElementById('clear-btn').addEventListener('click', async () => {
-    await chrome.storage.local.remove(['channels', 'lastUpdated', 'lastScrapeStats']);
+    await chrome.storage.local.remove(['channels', 'lastUpdated', 'lastScrapeStats', 'downloadedIds', 'downloadLock']);
     renderList({}, Number(sel.value));
     setLastUpdated(null);
     setStatus('Data cleared');
@@ -102,6 +110,135 @@ function renderList(channels, thresholdHours = DEFAULT_THRESHOLD_HOURS) {
   for (const entry of entries) {
     list.appendChild(buildCard(entry, now - entry.firstSeen < thresholdMs));
   }
+  applyStatuses(statusMap);
+}
+
+async function fetchStatus() {
+  try {
+    const response = await chrome.runtime.sendMessage({ type: 'GET_STATUS' });
+    if (!response?.ok) return;
+    statusMap = response.statuses;
+    applyStatuses(statusMap);
+    await syncDownloadBatch(response.statuses, response.titles ?? {});
+  } catch (e) {
+    // silent — status chips are best-effort
+  }
+}
+
+// Seed downloadBatch from titles returned by get_status, prune uploaded entries, re-render section.
+async function syncDownloadBatch(statuses, titles) {
+  const { downloadBatch = {} } = await chrome.storage.local.get('downloadBatch');
+  let changed = false;
+
+  // Seed entries for any active video we have a filename-derived title for.
+  for (const [videoId, title] of Object.entries(titles)) {
+    if (!downloadBatch[videoId]) {
+      downloadBatch[videoId] = {
+        videoId,
+        videoTitle: title,
+        channelName: '',
+        thumbnailUrl: `https://i.ytimg.com/vi/${videoId}/mqdefault.jpg`,
+        videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
+        channelUrl: '',
+        firstSeen: 0,
+        publishedTime: '',
+      };
+      changed = true;
+    }
+  }
+
+  // Remove entries that have finished uploading.
+  for (const [videoId, state] of Object.entries(statuses)) {
+    if (state.up === 'uploaded' && downloadBatch[videoId]) {
+      delete downloadBatch[videoId];
+      changed = true;
+    }
+  }
+
+  if (changed) await chrome.storage.local.set({ downloadBatch });
+  renderDownloads(downloadBatch, statuses);
+}
+
+function renderDownloads(batch, statuses) {
+  const section = document.getElementById('downloads-section');
+  // Only show videos that have an active status (not in the main channel list)
+  const channelCards = new Set(
+    Array.from(document.querySelectorAll('.status-row[data-video-id]')).map(r => r.dataset.videoId)
+  );
+  const active = Object.entries(batch).filter(([id]) => {
+    const s = statuses[id];
+    return s && s.up !== 'uploaded' && !channelCards.has(id);
+  });
+
+  if (active.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = 'block';
+  const list = document.getElementById('downloads-list');
+  list.innerHTML = '';
+  for (const [videoId, entry] of active) {
+    const state = statuses[videoId];
+    list.appendChild(buildDownloadCard(entry, state));
+  }
+}
+
+function buildDownloadCard(entry, state) {
+  const card = document.createElement('div');
+  card.className = 'video-card dl-card';
+
+  const thumb = document.createElement('img');
+  thumb.className = 'thumbnail';
+  thumb.alt = '';
+  thumb.src = entry.thumbnailUrl ?? '';
+  thumb.onerror = () => { thumb.style.opacity = '0.3'; };
+
+  const info = document.createElement('div');
+  info.className = 'info';
+
+  const channelEl = document.createElement('div');
+  channelEl.className = 'channel-name';
+  channelEl.textContent = entry.channelName ?? '';
+
+  const titleEl = document.createElement('div');
+  titleEl.className = 'video-title';
+  titleEl.textContent = entry.videoTitle ?? '';
+
+  const chipRow = document.createElement('div');
+  chipRow.className = 'status-row';
+  chipRow.dataset.videoId = entry.videoId;
+
+  const showDl = state.dl && state.up !== 'uploaded';
+  if (showDl) chipRow.appendChild(makeStatusChip(DL_LABELS[state.dl] ?? state.dl, `chip-dl-${state.dl}`));
+  if (state.up) chipRow.appendChild(makeStatusChip(UP_LABELS[state.up] ?? state.up, `chip-up-${state.up}`));
+
+  info.append(channelEl, titleEl, chipRow);
+  card.append(thumb, info);
+  card.addEventListener('click', () => chrome.tabs.create({ url: entry.videoUrl }));
+  return card;
+}
+
+function applyStatuses(map) {
+  for (const [videoId, state] of Object.entries(map)) {
+    const row = document.querySelector(`.status-row[data-video-id="${CSS.escape(videoId)}"]`);
+    if (!row) continue;
+    row.innerHTML = '';
+
+    const showDl = state.dl && state.up !== 'uploaded';
+    if (showDl) {
+      row.appendChild(makeStatusChip(DL_LABELS[state.dl] ?? state.dl, `chip-dl-${state.dl}`));
+    }
+    if (state.up) {
+      row.appendChild(makeStatusChip(UP_LABELS[state.up] ?? state.up, `chip-up-${state.up}`));
+    }
+  }
+}
+
+function makeStatusChip(text, cls) {
+  const chip = document.createElement('span');
+  chip.className = `status-chip ${cls}`;
+  chip.textContent = text;
+  return chip;
 }
 
 function buildCard(entry, isNew) {
@@ -153,8 +290,21 @@ function buildCard(entry, isNew) {
     handleDownload(entry, dlBtn);
   });
 
-  info.append(channelEl, titleEl, meta);
-  card.append(thumb, info, dlBtn);
+  const txBtn = document.createElement('button');
+  txBtn.className = 'tx-btn';
+  txBtn.textContent = 'T';
+  txBtn.title = 'Download transcript';
+  txBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    handleTranscript(entry, txBtn);
+  });
+
+  const statusRow = document.createElement('div');
+  statusRow.className = 'status-row';
+  if (entry.videoId) statusRow.dataset.videoId = entry.videoId;
+
+  info.append(channelEl, titleEl, statusRow, meta);
+  card.append(thumb, info, txBtn, dlBtn);
 
   function open() { chrome.tabs.create({ url: entry.videoUrl }); }
   card.addEventListener('click', open);
@@ -188,11 +338,32 @@ async function handleDownload(entry, btn) {
   }
 }
 
+async function handleTranscript(entry, btn) {
+  btn.disabled = true;
+  btn.textContent = '…';
+
+  const response = await chrome.runtime.sendMessage({
+    type: 'DOWNLOAD_TRANSCRIPT',
+    videoUrl: entry.videoUrl,
+  });
+
+  if (response?.status === 'started') {
+    btn.textContent = '✓';
+    btn.title = 'Transcript queued — will upload to R2 automatically';
+    btn.classList.add('tx-done');
+  } else {
+    btn.textContent = '✗';
+    btn.disabled = false;
+    btn.title = `Error: ${response?.error ?? 'unknown error'}`;
+    btn.classList.add('tx-error');
+  }
+}
+
 async function handleRefresh() {
   const btn = document.getElementById('refresh-btn');
   btn.disabled = true;
   btn.textContent = 'Refreshing…';
-  setStatus('Looking for subscriptions tab…');
+  setStatus('Refreshing…');
 
   const response = await chrome.runtime.sendMessage({ type: 'REFRESH_REQUEST' });
 
@@ -206,8 +377,13 @@ async function handleRefresh() {
     // Object.keys(channels).length  = what popup reads from storage now
     // If these differ there is a storage sync issue
     setStatusFromStats(response.stats, response.totalChannels ?? Object.keys(channels).length);
-  } else if (response?.reason === 'noTab') {
-    setStatus('No subscriptions tab open — visit youtube.com/feed/subscriptions first', true);
+    if (response.downloadStatus === 'started') {
+      showToast(`Queued ${response.downloadQueued} video${response.downloadQueued === 1 ? '' : 's'} for download`);
+    } else if (response.downloadStatus === 'nothing') {
+      showToast('No new videos to download');
+    } else if (response.downloadStatus === 'already_running') {
+      showToast('Download already running');
+    }
   } else if (response?.reason === 'contentScriptError') {
     setStatus(`Content script error: ${response.error ?? 'unknown'}`, true);
   } else {

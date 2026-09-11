@@ -8,7 +8,9 @@ const SELECTORS = {
     'ytd-video-renderer',
   ],
 
-  shortsItem: 'ytd-reel-item-renderer',
+  shortsItem: 'ytd-reel-item-renderer, ytm-shorts-lockup-view-model-v2, ytm-shorts-lockup-view-model',
+  // Live streams: overlay badge OR thumbnail badge in the new lockup layout
+  liveOverlay: 'ytd-thumbnail-overlay-time-status-renderer[overlay-style="LIVE"], [overlay-style="LIVE"], ytd-badge-supported-renderer .badge-style-type-live-now',
 
   channelLink: [
     // yt-lockup-view-model layout (2025+)
@@ -53,10 +55,23 @@ function query(el, selectorList) {
 
 function extractVideoId(url) {
   try {
-    return new URL(url, 'https://www.youtube.com').searchParams.get('v') || null;
-  } catch {
-    return null;
-  }
+    const parsed = new URL(url, 'https://www.youtube.com');
+    const v = parsed.searchParams.get('v');
+    if (v) return v;
+    // /shorts/videoId format
+    const m = parsed.pathname.match(/^\/shorts\/([A-Za-z0-9_-]{11})/);
+    if (m) return m[1];
+  } catch {}
+  return null;
+}
+
+// Fallback: extract video ID from the content-id-{videoId} class on ytLockupViewModelHost.
+// YouTube embeds the video ID in the class when a.ytLockupMetadataViewModelTitle is absent.
+function extractLockupId(item) {
+  const host = item.querySelector('[class*="content-id-"]');
+  if (!host) return null;
+  const m = host.className.match(/\bcontent-id-([A-Za-z0-9_-]{11})\b/);
+  return m ? m[1] : null;
 }
 
 function extractPublishedTime(item) {
@@ -132,15 +147,19 @@ function scrapeWithStats() {
         stats.itemsShorts++;
         continue;
       }
+      // Skip live streams — yt-dlp would download indefinitely
+      if (item.querySelector(SELECTORS.liveOverlay)) {
+        stats.itemsShorts++; // reuse shorts counter for "skipped non-regular" items
+        continue;
+      }
 
       const channelEl = query(item, SELECTORS.channelLink);
-      const videoLinkEl = query(item, SELECTORS.videoLink);
+      let videoLinkEl = query(item, SELECTORS.videoLink);
 
-      if (!channelEl || !videoLinkEl) {
+      if (!channelEl) {
         stats.itemsMissingSelectors++;
-        // Log the first few failures so selector issues are easy to spot in DevTools
         if (stats.itemsMissingSelectors <= 2) {
-          console.warn(`[mysub] Item #${stats.itemsMissingSelectors}: missing channelEl=${!channelEl} videoLinkEl=${!videoLinkEl}`);
+          console.warn(`[mysub] Item #${stats.itemsMissingSelectors}: missing channelEl`);
           console.warn('[mysub] innerHTML snippet:', item.innerHTML.substring(0, 600));
         }
         continue;
@@ -148,11 +167,35 @@ function scrapeWithStats() {
 
       const channelUrl = channelEl.href;
       const channelName = channelEl.textContent.trim();
-      const videoUrl = videoLinkEl.href;
-      const videoId = extractVideoId(videoUrl);
+      let videoUrl = videoLinkEl?.href || null;
+      let videoId = videoUrl ? extractVideoId(videoUrl) : null;
+
+      // Fallback: extract video ID from the content-id-{videoId} class when no <a> link matched.
+      // YouTube's lockup layout sometimes omits the anchor or uses a non-standard selector.
+      if (!videoId) {
+        const lockupId = extractLockupId(item);
+        if (lockupId) {
+          videoId  = lockupId;
+          videoUrl = `https://www.youtube.com/watch?v=${lockupId}`;
+          if (!videoLinkEl) {
+            // Also try to find the title element by class (may be a span, not an <a>)
+            videoLinkEl = item.querySelector('[class*="ytLockupMetadataViewModelTitle"]') || null;
+          }
+        }
+      }
+
+      if (!videoUrl || !videoId) {
+        stats.itemsMissingSelectors++;
+        if (stats.itemsMissingSelectors <= 2) {
+          console.warn(`[mysub] Item #${stats.itemsMissingSelectors}: videoLinkEl=false and no content-id-* class`);
+          console.warn('[mysub] innerHTML snippet:', item.innerHTML.substring(0, 600));
+        }
+        continue;
+      }
+
       // New lockup: title is textContent of the link itself; old renderer used a title="" attribute
-      const titleEl = videoLinkEl.querySelector('yt-formatted-string') || videoLinkEl;
-      const videoTitle = (videoLinkEl.getAttribute('title') || titleEl.textContent || videoLinkEl.textContent || '').trim();
+      const titleEl = videoLinkEl?.querySelector('yt-formatted-string') || videoLinkEl;
+      const videoTitle = (videoLinkEl?.getAttribute('title') || titleEl?.textContent || videoId).trim();
 
       if (!channelUrl || !videoUrl || !videoId || !videoTitle) {
         stats.itemsMissingData++;

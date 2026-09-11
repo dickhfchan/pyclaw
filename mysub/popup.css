@@ -1,7 +1,12 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+html { height: 100%; }
+
 body {
-  width: 420px;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
   background: #0f0f0f;
   color: #fff;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
@@ -68,10 +73,13 @@ body {
 
 /* ── Video list ──────────────────────────────────────────── */
 
-#video-list {
-  max-height: 520px;
+main {
+  flex: 1;
   overflow-y: auto;
+  min-height: 0;
 }
+
+#video-list {}
 
 .video-card {
   display: flex;
@@ -144,6 +152,28 @@ body {
   letter-spacing: 0.5px;
   flex-shrink: 0;
 }
+
+/* ── Downloads section ───────────────────────────────────── */
+
+#downloads-section {
+  border-bottom: 2px solid #2a2a2a;
+}
+
+#downloads-header {
+  font-size: 10px;
+  font-weight: 700;
+  color: #555;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+  padding: 6px 14px 4px;
+  background: #0d0d0d;
+}
+
+.dl-card {
+  background: #0d0d0d;
+  cursor: pointer;
+}
+.dl-card:hover { background: #151515; }
 
 /* ── Empty state ─────────────────────────────────────────── */
 
@@ -258,6 +288,63 @@ body {
 .dl-btn:disabled { opacity: 0.5; cursor: default; }
 .dl-btn.dl-done  { color: #4caf50; border-color: #4caf50; }
 .dl-btn.dl-error { color: #ff6b6b; border-color: #ff6b6b; }
+
+/* ── Status chips ────────────────────────────────────────── */
+
+.status-row {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+  min-height: 0;
+}
+
+.status-chip {
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 10px;
+  border: 1px solid;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  line-height: 1.6;
+}
+
+/* Download states */
+.chip-dl-in_queue    { color: #666; border-color: #333; background: transparent; }
+.chip-dl-downloading { color: #3ea6ff; border-color: #1a4a7a; background: rgba(62,166,255,0.08); }
+.chip-dl-downloaded  { color: #666; border-color: #333; background: transparent; }
+
+/* Upload states */
+.chip-up-in_queue  { color: #666; border-color: #333; background: transparent; }
+.chip-up-uploading { color: #bb86fc; border-color: #4a2a7a; background: rgba(187,134,252,0.08); }
+.chip-up-uploaded  { color: #4caf50; border-color: #1a4a1a; background: rgba(76,175,80,0.08); }
+
+/* ── Transcript button ───────────────────────────────────── */
+
+.tx-btn {
+  flex-shrink: 0;
+  align-self: center;
+  width: 28px;
+  height: 28px;
+  background: #1e1e1e;
+  border: 1px solid #333;
+  border-radius: 4px;
+  color: #888;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  margin-left: 6px;
+}
+.tx-btn:hover:not(:disabled) { background: #2a2a2a; color: #fff; border-color: #555; }
+.tx-btn:disabled { opacity: 0.5; cursor: default; }
+.tx-btn.tx-done  { color: #3ea6ff; border-color: #3ea6ff; }
+.tx-btn.tx-error { color: #ff6b6b; border-color: #ff6b6b; }
 
 /* ── Toast ───────────────────────────────────────────────── */
 

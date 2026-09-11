@@ -3,7 +3,7 @@
   "name": "MySub",
   "version": "0.1.0",
   "description": "See the latest video from each of your YouTube subscriptions at a glance.",
-  "permissions": ["storage", "tabs", "scripting", "nativeMessaging"],
+  "permissions": ["storage", "tabs", "scripting", "nativeMessaging", "sidePanel", "alarms"],
   "host_permissions": ["https://www.youtube.com/*"],
   "background": {
     "service_worker": "background.js"
@@ -15,8 +15,10 @@
       "run_at": "document_idle"
     }
   ],
+  "side_panel": {
+    "default_path": "popup.html"
+  },
   "action": {
-    "default_popup": "popup.html",
     "default_icon": {
       "16": "icons/icon16.png",
       "48": "icons/icon48.png",
